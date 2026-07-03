@@ -28,3 +28,5 @@ config.h
 # Archives
 *.tar.gz
 *.zip
+DLLS/*.dll
+installer.nsi
