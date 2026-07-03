@@ -195,6 +195,89 @@ int SaveEditor_SetDLC2Bonds(const char* path)
     return 0;
 }
 
+int SaveEditor_SetDLC3Bonds(const char* path)
+{
+    FILE* f = fopen(path, "rb");
+    if (!f) return -1;
+    fseek(f, 0, SEEK_END);
+    long len = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    char* buf = (char*)malloc(len + 4096);
+    if (!buf) { fclose(f); return -2; }
+    fread(buf, 1, len, f);
+    fclose(f);
+    buf[len] = '\0';
+
+    char* album = strstr(buf, "\"albumPartialDLC\"");
+    if (!album) { free(buf); return 0; }
+    char* dlc3 = strstr(album, "\"DLC3\"");
+    if (!dlc3) { free(buf); return 0; }
+    char* sss = strstr(dlc3, "\"specialSkinSelection\"");
+    if (!sss) { free(buf); return -3; }
+    char* brace = strchr(sss, '{');
+    if (!brace) { free(buf); return -3; }
+    int d = 1;
+    char* end = brace + 1;
+    while (*end && d > 0) {
+        if (*end == '{') d++;
+        else if (*end == '}') d--;
+        end++;
+    }
+
+    int ids[] = {3000,3001,3002,3003,3004,3005};
+    for (int i = 0; i < 6; i++) {
+        char id_str[32];
+        _snprintf(id_str, sizeof(id_str), "\"%d\": {", ids[i]);
+        char* entry = strstr(brace, id_str);
+        if (!entry || entry >= end) continue;
+        char* ob = strchr(entry, '{');
+        if (!ob) continue;
+        d = 1;
+        char* ee = ob + 1;
+        while (*ee && d > 0) {
+            if (*ee == '{') d++;
+            else if (*ee == '}') d--;
+            ee++;
+        }
+
+        char* exp = strstr(entry, "\"CurrentBondExp\": ");
+        if (exp && exp < ee) {
+            char* v = exp + 18;
+            char* ve = v;
+            if (*ve == '-') ve++;
+            while (*ve >= '0' && *ve <= '9') ve++;
+            long oldl = ve - v;
+            if (oldl != 3) {
+                memmove(ve + (3-oldl), ve, strlen(ve)+1);
+            }
+            memcpy(v, "400", 3);
+            long shift = 3 - oldl;
+            ee += shift;
+            end += shift;
+        }
+
+        char* lvl = strstr(entry, "\"CurrentBondLevel\": ");
+        if (lvl && lvl < ee) {
+            char* v = lvl + 20;
+            char* ve = v;
+            while (*ve >= '0' && *ve <= '9') ve++;
+            long oldl = ve - v;
+            if (oldl != 1) {
+                memmove(ve + (1-oldl), ve, strlen(ve)+1);
+            }
+            memcpy(v, "5", 1);
+        }
+    }
+
+    f = fopen(path, "wb");
+    if (!f) { free(buf); return -4; }
+    long new_len = strlen(buf);
+    fwrite(buf, 1, new_len, f);
+    fclose(f);
+    free(buf);
+    return 0;
+}
+
 int SaveEditor_SetKizunaMission(const char* path)
 {
     FILE* f = fopen(path, "rb");
@@ -232,7 +315,17 @@ int SaveEditor_SetKizunaMission(const char* path)
         }
         else
         {
-            long pos = (sched_end - 1) - buf;
+            // Find DLC3 object end
+            char* dlc3_brace = strchr(dlc3_in_sched, '{');
+            if (!dlc3_brace) { free(buf); return -3; }
+            d = 1;
+            char* dlc3_end = dlc3_brace + 1;
+            while (*dlc3_end && d > 0) {
+                if (*dlc3_end == '{') d++;
+                else if (*dlc3_end == '}') d--;
+                dlc3_end++;
+            }
+            long pos = (dlc3_end - 1) - buf;
             const char* section = ",\n    \"allTrackingMissions\": {\n      \"0\": [{\n        \"missionLabel\": \"DLC3_Main_Part4_KizunaProgress_Mission\",\n        \"conditionFinishStates\": [true, true, true, true, true, true],\n        \"conditionData\": [[],[],[],[],[],[]]\n      }]\n    }";
             InsertAt(buf, &len, pos, section);
             len = strlen(buf);
@@ -309,6 +402,8 @@ int SaveEditor_SetKizunaMission(const char* path)
 
 int SaveEditor_TriggerFestival(const char* path)
 {
+    int ret = SaveEditor_SetDLC3Bonds(path);
+    if (ret && ret != -3) return ret;
     return SaveEditor_SetKizunaMission(path);
 }
 
