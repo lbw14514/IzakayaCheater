@@ -417,7 +417,7 @@ int SaveEditor_SetKizunaMission(const char* path)
             }
             if (!mission || (atm_end && mission >= atm_end)) {
                 long pos = (atm_end - 1) - buf;
-                const char* comma = (atm_end && *(atm_end - 1) == '{') ? "" : ",";
+                const char* comma = (atm_brace && *(atm_brace + 1) == '}') ? "" : ",";
                 char entry[512];
                 _snprintf(entry, sizeof(entry), "%s\r\n      \"0\": [{\r\n        \"missionLabel\": \"DLC3_Main_Part4_KizunaProgress_Mission\",\r\n        \"conditionFinishStates\": [true, true, true, true, true, true],\r\n        \"conditionData\": [[],[],[],[],[],[]]\r\n      }", comma);
                 InsertAt(buf, &len, pos, entry);
@@ -455,7 +455,7 @@ int SaveEditor_SetKizunaMission(const char* path)
                         fe++;
                     }
                     long pos = (fe - 1) - buf;
-                    const char* comma = (fe && *(fe - 1) == '[') ? "" : ",";
+                    const char* comma = (fb && *(fb + 1) == ']') ? "" : ",";
                     char entry[128];
                     _snprintf(entry, sizeof(entry), "%s\r\n      \"DLC3_Main_Part4_KizunaProgress_Mission\"", comma);
                     InsertAt(buf, &len, pos, entry);
