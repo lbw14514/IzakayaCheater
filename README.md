@@ -36,4 +36,5 @@ cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release
 ninja
 ```
 
-编译后 `DLLS/` 目录下的文件会自动包含，双击 `build/IzakayaCheater.exe` 即可运行。
+### 运行
+将 `DLLS/` 目录下的 `.dll` 文件复制到 exe 同目录，双击运行。
