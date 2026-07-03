@@ -134,6 +134,8 @@ void MyMainFrame::OnTriggerFestival( wxCommandEvent& event )
 {
     int sel = saveSlotChoice->GetSelection();
     if (sel == wxNOT_FOUND) { saveStatusText->SetLabel(_T("请先选择存档!")); return; }
+    int answer = wxMessageBox(_T("可能跳过部分剧情导致不完整，是否继续？"), _T("确认"), wxYES_NO | wxICON_QUESTION);
+    if (answer != wxYES) { saveStatusText->SetLabel(_T("已取消")); return; }
     int slot = (int)(intptr_t)saveSlotChoice->GetClientData(sel);
     int ret = SaveEditor_TriggerFestivalSlot(slot);
     switch(ret)
