@@ -383,7 +383,7 @@ int SaveEditor_SetKizunaMission(const char* path)
     char* dlc3 = strstr(sched_brace, "\"DLC3\"");
     if (!dlc3 || dlc3 >= sched_end) {
         long pos = (sched_end - 1) - buf;
-        const char* sec = ",\r\n  \"DLC3\": {\r\n    \"dlcSaveDate\": 0,\r\n    \"scheduledEvents\": {},\r\n    \"scheduledNews\": {},\r\n    \"scheduledNewsReplaceContents\": {},\r\n    \"allTrackingMissions\": {\r\n      \"0\": {\r\n        \"missionLabel\": \"DLC3_Main_Part4_KizunaProgress_Mission\",\r\n        \"conditionFinishStates\": [true, true, true, true, true, true],\r\n        \"conditionData\": [[],[],[],[],[],[]]\r\n      }\r\n    },\r\n    \"finishedEvents\": [],\r\n    \"finishedMissions\": [\r\n      \"DLC3_Main_Part4_KizunaProgress_Mission\"\r\n    ]\r\n  }";
+        const char* sec = ",\r\n  \"DLC3\": {\r\n    \"dlcSaveDate\": 0,\r\n    \"scheduledEvents\": {},\r\n    \"scheduledNews\": {},\r\n    \"scheduledNewsReplaceContents\": {},\r\n    \"allTrackingMissions\": {\r\n      \"0\": [{\r\n        \"missionLabel\": \"DLC3_Main_Part4_KizunaProgress_Mission\",\r\n        \"conditionFinishStates\": [true, true, true, true, true, true],\r\n        \"conditionData\": [[],[],[],[],[],[]]\r\n      }\r\n    },\r\n    \"finishedEvents\": [],\r\n    \"finishedMissions\": [\r\n      \"DLC3_Main_Part4_KizunaProgress_Mission\"\r\n    ]\r\n  }";
         InsertAt(buf, &len, pos, sec);
     } else {
         char* dlc3_brace = strchr(dlc3, '{');
@@ -400,7 +400,7 @@ int SaveEditor_SetKizunaMission(const char* path)
         char* atm = strstr(dlc3, "\"allTrackingMissions\"");
         if (!atm || (dlc3_end && atm >= dlc3_end)) {
             long pos = (dlc3_end - 1) - buf;
-            const char* sec = ",\r\n    \"allTrackingMissions\": {\r\n      \"0\": {\r\n        \"missionLabel\": \"DLC3_Main_Part4_KizunaProgress_Mission\",\r\n        \"conditionFinishStates\": [true, true, true, true, true, true],\r\n        \"conditionData\": [[],[],[],[],[],[]]\r\n      }\r\n    }";
+            const char* sec = ",\r\n    \"allTrackingMissions\": {\r\n      \"0\": [{\r\n        \"missionLabel\": \"DLC3_Main_Part4_KizunaProgress_Mission\",\r\n        \"conditionFinishStates\": [true, true, true, true, true, true],\r\n        \"conditionData\": [[],[],[],[],[],[]]\r\n      }\r\n    }";
             InsertAt(buf, &len, pos, sec);
         } else {
             char* mission = strstr(atm, "\"DLC3_Main_Part4_KizunaProgress_Mission\"");
@@ -419,7 +419,7 @@ int SaveEditor_SetKizunaMission(const char* path)
                 long pos = (atm_end - 1) - buf;
                 const char* comma = (atm_end && *(atm_end - 1) == '{') ? "" : ",";
                 char entry[512];
-                _snprintf(entry, sizeof(entry), "%s\r\n      \"0\": {\r\n        \"missionLabel\": \"DLC3_Main_Part4_KizunaProgress_Mission\",\r\n        \"conditionFinishStates\": [true, true, true, true, true, true],\r\n        \"conditionData\": [[],[],[],[],[],[]]\r\n      }", comma);
+                _snprintf(entry, sizeof(entry), "%s\r\n      \"0\": [{\r\n        \"missionLabel\": \"DLC3_Main_Part4_KizunaProgress_Mission\",\r\n        \"conditionFinishStates\": [true, true, true, true, true, true],\r\n        \"conditionData\": [[],[],[],[],[],[]]\r\n      }", comma);
                 InsertAt(buf, &len, pos, entry);
             } else {
                 char* cfs = strstr(mission, "\"conditionFinishStates\"");
