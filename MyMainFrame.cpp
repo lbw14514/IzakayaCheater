@@ -163,7 +163,7 @@ void MyMainFrame::OnAddInvitation( wxCommandEvent& event )
     int ret = SaveEditor_AddInvitationsToSlot(slot);
     if (ret == 0)
     {
-        char bond_path[MAX_PATH]; SaveEditor_GetPath(slot, bond_path, sizeof(bond_path)); SaveEditor_SetDLC2Bonds(bond_path);
+
         saveStatusText->SetLabel(wxString::Format(_T("%s: 已添加邀请函, DLC2好感已满!"), saveSlotChoice->GetString(sel)));
     }
     else
