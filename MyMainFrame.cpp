@@ -38,6 +38,12 @@ MyMainFrame::MyMainFrame() : MainFrame(NULL, -1)
     addInvitationBtn->Bind(wxEVT_BUTTON, &MyMainFrame::OnAddInvitation, this);
     refreshSaveBtn->Bind(wxEVT_BUTTON, &MyMainFrame::OnRefreshSaves, this);
 
+    wxBoxSizer* row3 = new wxBoxSizer(wxHORIZONTAL);
+    wxButton* festivalBtn = new wxButton(this, wxID_ANY, _T("触发博丽大祭"));
+    row3->Add(festivalBtn, 0, wxALL, 5);
+    sizer->Add(row3, 0, wxALIGN_CENTER_HORIZONTAL, 5);
+    festivalBtn->Bind(wxEVT_BUTTON, &MyMainFrame::OnTriggerFestival, this);
+
     RefreshSaveList();
     Layout();
 }
@@ -124,16 +130,16 @@ void MyMainFrame::Change(){
     wxMessageBox(_T("已写入！"));
 }
 
-void MyMainFrame::OnAddInvitation( wxCommandEvent& event )
+void MyMainFrame::OnTriggerFestival( wxCommandEvent& event )
 {
     int sel = saveSlotChoice->GetSelection();
     if (sel == wxNOT_FOUND) { saveStatusText->SetLabel(_T("请先选择存档!")); return; }
     int slot = (int)(intptr_t)saveSlotChoice->GetClientData(sel);
-    int ret = SaveEditor_AddInvitationsToSlot(slot);
+    int ret = SaveEditor_TriggerFestivalSlot(slot);
     switch(ret)
     {
         case 0:
-            saveStatusText->SetLabel(wxString::Format(_T("%s: 已添加邀请函!"), saveSlotChoice->GetString(sel)));
+            saveStatusText->SetLabel(wxString::Format(_T("%s: DLC3好感满级, 羁绊任务已完成!"), saveSlotChoice->GetString(sel)));
             break;
         case -1:
             saveStatusText->SetLabel(_T("存档文件未找到!"));
@@ -146,5 +152,28 @@ void MyMainFrame::OnAddInvitation( wxCommandEvent& event )
             break;
         default:
             saveStatusText->SetLabel(wxString::Format(_T("错误代码: %d"), ret));
+    }
+}
+
+void MyMainFrame::OnAddInvitation( wxCommandEvent& event )
+{
+    int sel = saveSlotChoice->GetSelection();
+    if (sel == wxNOT_FOUND) { saveStatusText->SetLabel(_T("请先选择存档!")); return; }
+    int slot = (int)(intptr_t)saveSlotChoice->GetClientData(sel);
+    int ret = SaveEditor_AddInvitationsToSlot(slot);
+    if (ret == 0)
+    {
+        char bond_path[MAX_PATH]; SaveEditor_GetPath(slot, bond_path, sizeof(bond_path)); SaveEditor_SetDLC2Bonds(bond_path);
+        saveStatusText->SetLabel(wxString::Format(_T("%s: 已添加邀请函, DLC2好感已满!"), saveSlotChoice->GetString(sel)));
+    }
+    else
+    {
+        switch(ret)
+        {
+            case -1: saveStatusText->SetLabel(_T("存档文件未找到!")); break;
+            case -3: saveStatusText->SetLabel(_T("无法解析存档!")); break;
+            case -4: saveStatusText->SetLabel(_T("写入失败!")); break;
+            default: saveStatusText->SetLabel(wxString::Format(_T("错误代码: %d"), ret));
+        }
     }
 }

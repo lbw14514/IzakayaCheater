@@ -28,6 +28,7 @@ class MyMainFrame : public MainFrame
     virtual void OnTextEnter( wxCommandEvent& event );
     void OnAddInvitation( wxCommandEvent& event );
     void OnRefreshSaves( wxCommandEvent& event );
+    void OnTriggerFestival( wxCommandEvent& event );
     void RefreshSaveList();
     MyMainFrame();
 
