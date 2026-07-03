@@ -429,8 +429,11 @@ int SaveEditor_TriggerFestival(const char* path)
             char* dlc3 = strstr(sched_brace, "\"DLC3\"");
             if (!dlc3 || dlc3 >= sched_end) {
                 long pos = (sched_end - 1) - buf;
-                const char* sec = ",\n  \"DLC3\": {\n    \"dlcSaveDate\": 0,\n    \"scheduledEvents\": {},\n    \"scheduledNews\": {},\n    \"scheduledNewsReplaceContents\": {},\n    \"allTrackingMissions\": {\n      \"0\": [{\n        \"missionLabel\": \"DLC3_Main_Part4_KizunaProgress_Mission\",\n        \"conditionFinishStates\": [true, true, true, true, true, true],\n        \"conditionData\": [[],[],[],[],[],[]]\n      }]\n    },\n    \"finishedEvents\": [\n      \"DLC3_Main_Part4_Mission_Finished_Event\"\n    ],\n    \"finishedMissions\": [\n      \"DLC3_Main_Part4_KizunaProgress_Mission\",\n      \"DLC3_Main_Part8_HakureiFestivalChallenge_GuidedMission\"\n    ]\n  }";
-                InsertAt(buf, &len, pos, sec);
+                const char* comma = (sched_brace && *(sched_brace + 1) == '}') ? "" : ",";
+                char section[8192];
+                _snprintf(section, sizeof(section),
+                    "%s\n  \"DLC3\": {\n    \"dlcSaveDate\": 0,\n    \"scheduledEvents\": {},\n    \"scheduledNews\": {},\n    \"scheduledNewsReplaceContents\": {},\n    \"allTrackingMissions\": {\n      \"0\": [{\n        \"missionLabel\": \"DLC3_Main_Part4_KizunaProgress_Mission\",\n        \"conditionFinishStates\": [true, true, true, true, true, true],\n        \"conditionData\": [[],[],[],[],[],[]]\n      }]\n    },\n    \"finishedEvents\": [\n      \"DLC3_Main_Part4_Mission_Finished_Event\"\n    ],\n    \"finishedMissions\": [\n      \"DLC3_Main_Part4_KizunaProgress_Mission\",\n      \"DLC3_Main_Part8_HakureiFestivalChallenge_GuidedMission\"\n    ]\n  }", comma);
+                InsertAt(buf, &len, pos, section);
             } else {
                 char* dlc3_brace = strchr(dlc3, '{');
                 if (dlc3_brace) {
