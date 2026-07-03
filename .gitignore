@@ -13,3 +13,4 @@ buildbuild/
 release/
 *.user
 .vs/
+*.tar.gz
