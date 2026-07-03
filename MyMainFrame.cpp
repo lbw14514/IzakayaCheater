@@ -139,7 +139,7 @@ void MyMainFrame::OnTriggerFestival( wxCommandEvent& event )
     switch(ret)
     {
         case 0:
-            saveStatusText->SetLabel(wxString::Format(_T("%s: DLC3好感满级, 羁绊任务已完成!"), saveSlotChoice->GetString(sel)));
+            saveStatusText->SetLabel(_T("完成"));
             break;
         case -1:
             saveStatusText->SetLabel(_T("存档文件未找到!"));
@@ -164,7 +164,7 @@ void MyMainFrame::OnAddInvitation( wxCommandEvent& event )
     if (ret == 0)
     {
 
-        saveStatusText->SetLabel(wxString::Format(_T("%s: 已添加邀请函, DLC2好感已满!"), saveSlotChoice->GetString(sel)));
+        saveStatusText->SetLabel(_T("完成"));
     }
     else
     {

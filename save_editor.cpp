@@ -284,12 +284,35 @@ int SaveEditor_SetDLC3Bonds(const char* path)
     return 0;
 }
 
+
 static void InsertAt(char* buf, long* len, long pos, const char* text)
 {
     long text_len = strlen(text);
     memmove(buf + pos + text_len, buf + pos, *len - pos + 1);
     memcpy(buf + pos, text, text_len);
     *len += text_len;
+}
+
+static void EnsureSectionInsert(char* buf, long* len, const char* parent_key, const char* child_key, const char* insert_content)
+{
+    char* parent = strstr(buf, parent_key);
+    if (!parent) return;
+    char* brace = strchr(parent, '{');
+    if (!brace) return;
+    int d = 1;
+    char* end = brace + 1;
+    while (*end && d > 0) {
+        if (*end == '{') d++;
+        else if (*end == '}') d--;
+        end++;
+    }
+    // Check if child already exists
+    char search_key[128];
+    _snprintf(search_key, sizeof(search_key), "\"%s\"", child_key);
+    if (strstr(brace, search_key) && strstr(brace, search_key) < end) return;
+    // Insert before closing brace
+    long pos = (end - 1) - buf;
+    InsertAt(buf, len, pos, insert_content);
 }
 
 int SaveEditor_SetKizunaMission(const char* path)
@@ -299,12 +322,52 @@ int SaveEditor_SetKizunaMission(const char* path)
     fseek(f, 0, SEEK_END);
     long len = ftell(f);
     fseek(f, 0, SEEK_SET);
-    char* buf = (char*)malloc(len + 4096);
+    char* buf = (char*)malloc(len + 8192);
     if (!buf) { fclose(f); return -2; }
     fread(buf, 1, len, f);
     fclose(f);
     buf[len] = '\0';
 
+    // Insert DLC3 into albumPartialDLC if missing
+    char* album = strstr(buf, "\"albumPartialDLC\"");
+    if (album) {
+        char* ab = strchr(album, '{');
+        if (ab) {
+            int d = 1; char* ae = ab + 1;
+            while (*ae && d > 0) { if (*ae == '{') d++; else if (*ae == '}') d--; ae++; }
+            if (!strstr(ab, "\"DLC3\"") || strstr(ab, "\"DLC3\"") >= ae) {
+                long pos = (ae - 1) - buf;
+                const char* dlc3_album =
+                    ",\r\n  \"DLC3\": {\r\n    \"nGuests\": 0,\r\n    \"foods\": {},\r\n    \"bevs\": {},\r\n    \"ings\": {},\r\n    \"cookers\": {},\r\n    \"items\": [],\r\n    \"badges\": [],\r\n    \"specialSkinSelection\": {\r\n"
+                    "      \"3000\": {\"UnlockedExplicits\":[],\"CurrentSkinSelection\":{\"selectedType\":\"Default\",\"index\":0},\"CurrentBondExp\":9999,\"CurrentBondLevel\":5,\"DoNotShowInNight\":false,\"IzakayaWhereCanSpawn\":[],\"RevealedFoodTags\":[],\"RevealedHateFoodTags\":[],\"RevealedBevTags\":[],\"RevealedIzakaya\":[],\"PositiveSCNum\":0,\"NegativeSCNum\":0},\r\n"
+                    "      \"3001\": {\"UnlockedExplicits\":[],\"CurrentSkinSelection\":{\"selectedType\":\"Default\",\"index\":0},\"CurrentBondExp\":9999,\"CurrentBondLevel\":5,\"DoNotShowInNight\":false,\"IzakayaWhereCanSpawn\":[],\"RevealedFoodTags\":[],\"RevealedHateFoodTags\":[],\"RevealedBevTags\":[],\"RevealedIzakaya\":[],\"PositiveSCNum\":0,\"NegativeSCNum\":0},\r\n"
+                    "      \"3002\": {\"UnlockedExplicits\":[],\"CurrentSkinSelection\":{\"selectedType\":\"Default\",\"index\":0},\"CurrentBondExp\":9999,\"CurrentBondLevel\":5,\"DoNotShowInNight\":false,\"IzakayaWhereCanSpawn\":[],\"RevealedFoodTags\":[],\"RevealedHateFoodTags\":[],\"RevealedBevTags\":[],\"RevealedIzakaya\":[],\"PositiveSCNum\":0,\"NegativeSCNum\":0},\r\n"
+                    "      \"3003\": {\"UnlockedExplicits\":[],\"CurrentSkinSelection\":{\"selectedType\":\"Default\",\"index\":0},\"CurrentBondExp\":9999,\"CurrentBondLevel\":5,\"DoNotShowInNight\":false,\"IzakayaWhereCanSpawn\":[],\"RevealedFoodTags\":[],\"RevealedHateFoodTags\":[],\"RevealedBevTags\":[],\"RevealedIzakaya\":[],\"PositiveSCNum\":0,\"NegativeSCNum\":0},\r\n"
+                    "      \"3004\": {\"UnlockedExplicits\":[],\"CurrentSkinSelection\":{\"selectedType\":\"Default\",\"index\":0},\"CurrentBondExp\":9999,\"CurrentBondLevel\":5,\"DoNotShowInNight\":false,\"IzakayaWhereCanSpawn\":[],\"RevealedFoodTags\":[],\"RevealedHateFoodTags\":[],\"RevealedBevTags\":[],\"RevealedIzakaya\":[],\"PositiveSCNum\":0,\"NegativeSCNum\":0},\r\n"
+                    "      \"3005\": {\"UnlockedExplicits\":[],\"CurrentSkinSelection\":{\"selectedType\":\"Default\",\"index\":0},\"CurrentBondExp\":9999,\"CurrentBondLevel\":5,\"DoNotShowInNight\":false,\"IzakayaWhereCanSpawn\":[],\"RevealedFoodTags\":[],\"RevealedHateFoodTags\":[],\"RevealedBevTags\":[],\"RevealedIzakaya\":[],\"PositiveSCNum\":0,\"NegativeSCNum\":0}\r\n"
+                    "    },\r\n    \"usedDecorations\": {},\r\n    \"playerSkinSelection\": {}\r\n  }";
+                InsertAt(buf, &len, pos, dlc3_album);
+            }
+        }
+    }
+
+    // Insert DLC3 into storagePartialDLC if missing
+    char* storage_dlc = strstr(buf, "\"storagePartialDLC\"");
+    if (storage_dlc) {
+        char* sb = strchr(storage_dlc, '{');
+        if (sb) {
+            int d = 1; char* se = sb + 1;
+            while (*se && d > 0) { if (*se == '{') d++; else if (*se == '}') d--; se++; }
+            if (!strstr(sb, "\"DLC3\"") || strstr(sb, "\"DLC3\"") >= se) {
+                long pos = (se - 1) - buf;
+                const char* dlc3_storage =
+                    ",\r\n  \"DLC3\": {\r\n    \"foods\": {},\r\n    \"beverages\": {},\r\n    \"ingredients\": {},\r\n    \"cookers\": {},\r\n    \"items\": [],\r\n    \"badges\": [],\r\n    \"trophies\": [],\r\n    \"itemsShouldDeleteTomorrow\": {},\r\n    \"recipes\": {},\r\n    \"izakayas\": {},\r\n    \"unlockedPartners\": []\r\n  }";
+                InsertAt(buf, &len, pos, dlc3_storage);
+            }
+        }
+    }
+
+    // Ensure schedulerPartialDLC.DLC3 and mission exist
     char* sched = strstr(buf, "\"schedulerPartialDLC\"");
     if (!sched) { free(buf); return -3; }
     char* sched_brace = strchr(sched, '{');
@@ -320,7 +383,7 @@ int SaveEditor_SetKizunaMission(const char* path)
     char* dlc3 = strstr(sched_brace, "\"DLC3\"");
     if (!dlc3 || dlc3 >= sched_end) {
         long pos = (sched_end - 1) - buf;
-        const char* sec = ",\n  \"DLC3\": {\n    \"dlcSaveDate\": 0,\n    \"scheduledEvents\": {},\n    \"scheduledNews\": {},\n    \"scheduledNewsReplaceContents\": {},\n    \"allTrackingMissions\": {\n      \"0\": {\n        \"missionLabel\": \"DLC3_Main_Part4_KizunaProgress_Mission\",\n        \"conditionFinishStates\": [true, true, true, true, true, true],\n        \"conditionData\": [[],[],[],[],[],[]]\n      }\n    },\n    \"finishedEvents\": [],\n    \"finishedMissions\": [\n      \"DLC3_Main_Part4_KizunaProgress_Mission\"\n    ]\n  }";
+        const char* sec = ",\r\n  \"DLC3\": {\r\n    \"dlcSaveDate\": 0,\r\n    \"scheduledEvents\": {},\r\n    \"scheduledNews\": {},\r\n    \"scheduledNewsReplaceContents\": {},\r\n    \"allTrackingMissions\": {\r\n      \"0\": {\r\n        \"missionLabel\": \"DLC3_Main_Part4_KizunaProgress_Mission\",\r\n        \"conditionFinishStates\": [true, true, true, true, true, true],\r\n        \"conditionData\": [[],[],[],[],[],[]]\r\n      }\r\n    },\r\n    \"finishedEvents\": [],\r\n    \"finishedMissions\": [\r\n      \"DLC3_Main_Part4_KizunaProgress_Mission\"\r\n    ]\r\n  }";
         InsertAt(buf, &len, pos, sec);
     } else {
         char* dlc3_brace = strchr(dlc3, '{');
@@ -337,7 +400,7 @@ int SaveEditor_SetKizunaMission(const char* path)
         char* atm = strstr(dlc3, "\"allTrackingMissions\"");
         if (!atm || (dlc3_end && atm >= dlc3_end)) {
             long pos = (dlc3_end - 1) - buf;
-            const char* sec = ",\n    \"allTrackingMissions\": {\n      \"0\": {\n        \"missionLabel\": \"DLC3_Main_Part4_KizunaProgress_Mission\",\n        \"conditionFinishStates\": [true, true, true, true, true, true],\n        \"conditionData\": [[],[],[],[],[],[]]\n      }\n    }";
+            const char* sec = ",\r\n    \"allTrackingMissions\": {\r\n      \"0\": {\r\n        \"missionLabel\": \"DLC3_Main_Part4_KizunaProgress_Mission\",\r\n        \"conditionFinishStates\": [true, true, true, true, true, true],\r\n        \"conditionData\": [[],[],[],[],[],[]]\r\n      }\r\n    }";
             InsertAt(buf, &len, pos, sec);
         } else {
             char* mission = strstr(atm, "\"DLC3_Main_Part4_KizunaProgress_Mission\"");
@@ -356,7 +419,7 @@ int SaveEditor_SetKizunaMission(const char* path)
                 long pos = (atm_end - 1) - buf;
                 const char* comma = (atm_end && *(atm_end - 1) == '{') ? "" : ",";
                 char entry[512];
-                _snprintf(entry, sizeof(entry), "%s\n      \"0\": {\n        \"missionLabel\": \"DLC3_Main_Part4_KizunaProgress_Mission\",\n        \"conditionFinishStates\": [true, true, true, true, true, true],\n        \"conditionData\": [[],[],[],[],[],[]]\n      }", comma);
+                _snprintf(entry, sizeof(entry), "%s\r\n      \"0\": {\r\n        \"missionLabel\": \"DLC3_Main_Part4_KizunaProgress_Mission\",\r\n        \"conditionFinishStates\": [true, true, true, true, true, true],\r\n        \"conditionData\": [[],[],[],[],[],[]]\r\n      }", comma);
                 InsertAt(buf, &len, pos, entry);
             } else {
                 char* cfs = strstr(mission, "\"conditionFinishStates\"");
@@ -378,7 +441,6 @@ int SaveEditor_SetKizunaMission(const char* path)
                 }
             }
         }
-        // Add to finishedMissions if not there
         char* fin = strstr(dlc3, "\"finishedMissions\"");
         if (fin && fin < (dlc3_end ? dlc3_end : fin + 100)) {
             char* check = strstr(fin, "\"DLC3_Main_Part4_KizunaProgress_Mission\"");
@@ -395,7 +457,7 @@ int SaveEditor_SetKizunaMission(const char* path)
                     long pos = (fe - 1) - buf;
                     const char* comma = (fe && *(fe - 1) == '[') ? "" : ",";
                     char entry[128];
-                    _snprintf(entry, sizeof(entry), "%s\n      \"DLC3_Main_Part4_KizunaProgress_Mission\"", comma);
+                    _snprintf(entry, sizeof(entry), "%s\r\n      \"DLC3_Main_Part4_KizunaProgress_Mission\"", comma);
                     InsertAt(buf, &len, pos, entry);
                 }
             }
