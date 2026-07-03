@@ -55,7 +55,7 @@ class MainFrame : public wxFrame
 
 	public:
 
-		MainFrame( wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("东方夜雀食堂金钱修改器"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize( 362,431 ), long style = wxDEFAULT_FRAME_STYLE|wxTAB_TRAVERSAL, const wxString& name = wxT("夜雀食堂金钱修改器") );
+		MainFrame( wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("东方夜雀食堂金钱修改器"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize( 362,500 ), long style = wxDEFAULT_FRAME_STYLE|wxTAB_TRAVERSAL, const wxString& name = wxT("夜雀食堂金钱修改器") );
 
 		~MainFrame();
 

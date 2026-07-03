@@ -7,7 +7,7 @@ set (${PROJECT_NAME}_VERSION_MINOR 1)
 include(CTest)
 enable_testing()
 
-set(SRCS main.cpp ui/ui.cpp MyMainFrame.cpp utils.cpp MyAboutDialog.cpp)
+set(SRCS main.cpp ui/ui.cpp MyMainFrame.cpp utils.cpp MyAboutDialog.cpp save_editor.cpp)
 
 add_executable(IzakayaCheater ${SRCS})
 
