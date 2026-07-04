@@ -4,9 +4,9 @@
 #include <vector>
 #include <string>
 
-static const uintptr_t modBaseOffset = 0x3F81830;
+static const uintptr_t modBaseOffset = 0x2E7E9C0;
 
-static const std::vector<unsigned int> moneyOffsets = { 0xB8, 0x38 };
+static const std::vector<unsigned int> moneyOffsets = { 0xB8, 0x10 };
 
 DWORD GetProcessID(const char* procName);
 uintptr_t GetModuleBaseAddress(DWORD procId, const char* modName);

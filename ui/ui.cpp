@@ -104,7 +104,7 @@ AboutDialog::AboutDialog( wxWindow* parent, wxWindowID id, const wxString& title
 
 	bSizer2->Add( 0, 0, 1, wxEXPAND, 5 );
 
-	m_staticText5 = new wxStaticText( this, wxID_ANY, wxT("本修改器由usfese制作。wuyulbw维护"), wxDefaultPosition, wxDefaultSize, 0 );
+	m_staticText5 = new wxStaticText( this, wxID_ANY, wxT("本修改器由usfese制作 wuyulbw维护"), wxDefaultPosition, wxDefaultSize, 0 );
 	m_staticText5->Wrap( -1 );
 	bSizer2->Add( m_staticText5, 0, wxALL, 5 );
 
@@ -120,10 +120,6 @@ AboutDialog::AboutDialog( wxWindow* parent, wxWindowID id, const wxString& title
 	versionText = new wxStaticText( this, wxID_ANY, wxT("0"), wxDefaultPosition, wxDefaultSize, 0 );
 	versionText->Wrap( -1 );
 	fgSizer1->Add( versionText, 0, wxALL, 5 );
-
-	m_staticText11 = new wxStaticText( this, wxID_ANY, wxT("支持游戏版本："), wxDefaultPosition, wxDefaultSize, 0 );
-	m_staticText11->Wrap( -1 );
-	fgSizer1->Add( m_staticText11, 0, wxALL, 5 );
 
 	supportedGameVersionText = new wxStaticText( this, wxID_ANY, wxT("0"), wxDefaultPosition, wxDefaultSize, 0 );
 	supportedGameVersionText->Wrap( -1 );
