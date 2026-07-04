@@ -15,6 +15,7 @@ class MyMainFrame : public MainFrame
     wxChoice* saveSlotChoice;
     wxButton* refreshSaveBtn;
     wxButton* addInvitationBtn;
+    wxTextCtrl* saveMoneyCtrl;
     wxStaticText* saveStatusText;
 
     public:
@@ -29,6 +30,7 @@ class MyMainFrame : public MainFrame
     void OnAddInvitation( wxCommandEvent& event );
     void OnRefreshSaves( wxCommandEvent& event );
     void OnTriggerFestival( wxCommandEvent& event );
+    void OnSaveMoney( wxCommandEvent& event );
     void RefreshSaveList();
     MyMainFrame();
 

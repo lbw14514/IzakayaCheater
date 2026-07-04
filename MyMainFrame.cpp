@@ -44,6 +44,16 @@ MyMainFrame::MyMainFrame() : MainFrame(NULL, -1)
     sizer->Add(row3, 0, wxALIGN_CENTER_HORIZONTAL, 5);
     festivalBtn->Bind(wxEVT_BUTTON, &MyMainFrame::OnTriggerFestival, this);
 
+    // Add money via save button
+    wxBoxSizer* row4 = new wxBoxSizer(wxHORIZONTAL);
+    row4->Add(new wxStaticText(this, wxID_ANY, _T("金钱")), 0, wxALL|wxALIGN_CENTER_VERTICAL, 5);
+    saveMoneyCtrl = new wxTextCtrl(this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxSize(100,-1));
+    row4->Add(saveMoneyCtrl, 0, wxALL, 5);
+    wxButton* saveMoneyBtn = new wxButton(this, wxID_ANY, _T("写入存档"));
+    row4->Add(saveMoneyBtn, 0, wxALL, 5);
+    sizer->Add(row4, 0, wxALIGN_CENTER_HORIZONTAL, 5);
+    saveMoneyBtn->Bind(wxEVT_BUTTON, &MyMainFrame::OnSaveMoney, this);
+
     RefreshSaveList();
     Layout();
 }
@@ -154,6 +164,29 @@ void MyMainFrame::OnTriggerFestival( wxCommandEvent& event )
             break;
         default:
             saveStatusText->SetLabel(wxString::Format(_T("错误代码: %d"), ret));
+    }
+}
+
+void MyMainFrame::OnSaveMoney( wxCommandEvent& event )
+{
+    int sel = saveSlotChoice->GetSelection();
+    if (sel == wxNOT_FOUND) { saveStatusText->SetLabel(_T("请先选择存档!")); return; }
+    int slot = (int)(intptr_t)saveSlotChoice->GetClientData(sel);
+    unsigned long value;
+    if (!saveMoneyCtrl->GetValue().ToULong(&value)) {
+        saveStatusText->SetLabel(_T("请输入有效数字!"));
+        return;
+    }
+    char path[MAX_PATH];
+    if (SaveEditor_GetPath(slot, path, sizeof(path))) { saveStatusText->SetLabel(_T("路径错误!")); return; }
+    int ret = SaveEditor_SetFund(path, (int)value);
+    switch(ret)
+    {
+        case 0: saveStatusText->SetLabel(_T("完成")); break;
+        case -1: saveStatusText->SetLabel(_T("存档文件未找到!")); break;
+        case -3: saveStatusText->SetLabel(_T("无法解析存档!")); break;
+        case -4: saveStatusText->SetLabel(_T("写入失败!")); break;
+        default: saveStatusText->SetLabel(wxString::Format(_T("错误代码: %d"), ret));
     }
 }
 

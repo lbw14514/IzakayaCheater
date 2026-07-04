@@ -569,3 +569,44 @@ int SaveEditor_TriggerFestivalSlot(int slot)
     if (ret) return ret;
     return SaveEditor_TriggerFestival(path);
 }
+
+int SaveEditor_SetFund(const char* path, int value)
+{
+    FILE* f = fopen(path, "rb");
+    if (!f) return -1;
+    fseek(f, 0, SEEK_END);
+    long len = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    char* buf = (char*)malloc(len + 128);
+    if (!buf) { fclose(f); return -2; }
+    fread(buf, 1, len, f);
+    fclose(f);
+    buf[len] = '\0';
+
+    char* fund = strstr(buf, "\"fund\"");
+    if (!fund) { free(buf); return -3; }
+    char* colon = strchr(fund, ':');
+    if (!colon) { free(buf); return -3; }
+    char* val = colon + 1;
+    while (*val == ' ') val++;
+    char* val_end = val;
+    if (*val_end == '-') val_end++;
+    while (*val_end >= '0' && *val_end <= '9') val_end++;
+
+    char new_val[32];
+    _snprintf(new_val, sizeof(new_val), "%d", value);
+    long old_len = val_end - val;
+    long new_len = strlen(new_val);
+    if (new_len != old_len) {
+        memmove(val_end + (new_len - old_len), val_end, strlen(val_end) + 1);
+    }
+    memcpy(val, new_val, new_len);
+    len = strlen(buf);
+
+    f = fopen(path, "wb");
+    if (!f) { free(buf); return -4; }
+    fwrite(buf, 1, len, f);
+    fclose(f);
+    free(buf);
+    return 0;
+}
