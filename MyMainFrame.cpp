@@ -5,7 +5,7 @@
 
 MyMainFrame::MyMainFrame() : MainFrame(NULL, -1)
 {
-    SetTitle(_T("东方夜雀食堂金钱修改器") + wxString::FromUTF8(VERSION));
+    SetTitle(_T("东方夜雀食堂修改器"));
     this->supportText->SetLabel(_T("支持夜雀食堂") + wxString::FromUTF8(SUPPORTED_VERSION));
 
     wxBoxSizer* sizer = (wxBoxSizer*)GetSizer();
