@@ -32,7 +32,7 @@ MainFrame::MainFrame( wxWindow* parent, wxWindowID id, const wxString& title, co
 	bSizer1->Add( DetectingButton, 0, wxALL, 5 );
 
 
-	bSizer1->Add( 0, 0, 1, wxEXPAND, 5 );
+	bSizer1->Add( 0, 0, 0, wxEXPAND, 5 );
 
 	m_staticText14 = new wxStaticText( this, wxID_ANY, wxT("金钱"), wxDefaultPosition, wxDefaultSize, 0 );
 	m_staticText14->Wrap( -1 );
@@ -51,18 +51,14 @@ MainFrame::MainFrame( wxWindow* parent, wxWindowID id, const wxString& title, co
 	gSizer1->Add( ChangeButton, 0, wxALL|wxALIGN_RIGHT, 5 );
 
 
-	bSizer1->Add( gSizer1, 1, wxEXPAND, 5 );
+	bSizer1->Add( gSizer1, 0, wxEXPAND, 5 );
 
-
-	bSizer1->Add( 0, 0, 1, wxEXPAND, 5 );
 
 	AboutButton = new wxButton( this, wxID_ANY, wxT("关于"), wxDefaultPosition, wxDefaultSize, 0 );
 	bSizer1->Add( AboutButton, 0, wxALL, 5 );
 
 	m_textCtrl1 = new wxTextCtrl( this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxSize( 0,0 ), 0 );
 	m_textCtrl1->Hide();
-
-	bSizer1->Add( m_textCtrl1, 0, wxALL, 5 );
 
 
 	this->SetSizer( bSizer1 );

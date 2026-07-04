@@ -10,9 +10,6 @@ MyMainFrame::MyMainFrame() : MainFrame(NULL, -1)
 
     wxBoxSizer* sizer = (wxBoxSizer*)GetSizer();
 
-    sizer->Add(0, 0, 0, wxEXPAND, 5);
-    sizer->Add(0, 0, 0, wxEXPAND, 5);
-
     wxStaticText* sep = new wxStaticText(this, wxID_ANY, _T("-- 存档修改 --"));
     sep->SetFont(wxFont(10, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD));
     sizer->Add(sep, 0, wxALL|wxALIGN_CENTER_HORIZONTAL, 5);
@@ -26,20 +23,20 @@ MyMainFrame::MyMainFrame() : MainFrame(NULL, -1)
     row->Add(refreshSaveBtn, 0, wxALL, 5);
     sizer->Add(row, 0, wxALIGN_CENTER_HORIZONTAL, 5);
 
-    wxBoxSizer* row2 = new wxBoxSizer(wxHORIZONTAL);
-    addInvitationBtn = new wxButton(this, wxID_ANY, _T("添加邀请函到存档"));
-    row2->Add(addInvitationBtn, 0, wxALL, 5);
-    sizer->Add(row2, 0, wxALIGN_CENTER_HORIZONTAL, 5);
-
     saveStatusText = new wxStaticText(this, wxID_ANY, wxEmptyString);
     saveStatusText->SetForegroundColour(wxColour(0,128,0));
-    sizer->Add(saveStatusText, 0, wxALL|wxALIGN_CENTER_HORIZONTAL, 5);
+    sizer->Add(saveStatusText, 0, wxALL|wxALIGN_CENTER_HORIZONTAL, 2);
+
+    wxBoxSizer* row2 = new wxBoxSizer(wxHORIZONTAL);
+    addInvitationBtn = new wxButton(this, wxID_ANY, _T("添加邀请函（DLC2 BOSS）"));
+    row2->Add(addInvitationBtn, 0, wxALL, 5);
+    sizer->Add(row2, 0, wxALIGN_CENTER_HORIZONTAL, 5);
 
     addInvitationBtn->Bind(wxEVT_BUTTON, &MyMainFrame::OnAddInvitation, this);
     refreshSaveBtn->Bind(wxEVT_BUTTON, &MyMainFrame::OnRefreshSaves, this);
 
     wxBoxSizer* row3 = new wxBoxSizer(wxHORIZONTAL);
-    wxButton* festivalBtn = new wxButton(this, wxID_ANY, _T("触发博丽大祭"));
+    wxButton* festivalBtn = new wxButton(this, wxID_ANY, _T("触发博丽大祭（DLC3 BOSS）"));
     row3->Add(festivalBtn, 0, wxALL, 5);
     sizer->Add(row3, 0, wxALIGN_CENTER_HORIZONTAL, 5);
     festivalBtn->Bind(wxEVT_BUTTON, &MyMainFrame::OnTriggerFestival, this);
@@ -55,6 +52,11 @@ MyMainFrame::MyMainFrame() : MainFrame(NULL, -1)
     saveMoneyBtn->Bind(wxEVT_BUTTON, &MyMainFrame::OnSaveMoney, this);
 
     RefreshSaveList();
+    // Hide the original AboutButton from base class and add new one at bottom
+    this->AboutButton->Hide();
+    wxButton* aboutBtn = new wxButton(this, wxID_ANY, _T("关于"));
+    sizer->Add(aboutBtn, 0, wxALL, 5);
+    aboutBtn->Bind(wxEVT_BUTTON, &MyMainFrame::OnAbout, this);
     Layout();
 }
 
