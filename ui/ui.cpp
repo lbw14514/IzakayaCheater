@@ -113,13 +113,6 @@ AboutDialog::AboutDialog( wxWindow* parent, wxWindowID id, const wxString& title
 	fgSizer1->SetFlexibleDirection( wxBOTH );
 	fgSizer1->SetNonFlexibleGrowMode( wxFLEX_GROWMODE_SPECIFIED );
 
-	m_staticText7 = new wxStaticText( this, wxID_ANY, wxT("项目地址："), wxDefaultPosition, wxDefaultSize, 0 );
-	m_staticText7->Wrap( -1 );
-	fgSizer1->Add( m_staticText7, 0, wxALL, 5 );
-
-	m_hyperlink3 = new wxHyperlinkCtrl( this, wxID_ANY, wxT("Github"), wxT("https://github.com/usfese/IzakayaCheater"), wxDefaultPosition, wxDefaultSize, wxHL_DEFAULT_STYLE );
-	fgSizer1->Add( m_hyperlink3, 0, wxALL, 5 );
-
 	m_staticText10 = new wxStaticText( this, wxID_ANY, wxT("软件版本："), wxDefaultPosition, wxDefaultSize, 0 );
 	m_staticText10->Wrap( -1 );
 	fgSizer1->Add( m_staticText10, 0, wxALL, 5 );
