@@ -2,7 +2,7 @@
 #include <tlhelp32.h>
 
 
-DWORD GetProcessID(const wchar_t* procName){
+DWORD GetProcessID(const char* procName){
 	DWORD procId = 0;
 
 	HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -11,7 +11,7 @@ DWORD GetProcessID(const wchar_t* procName){
 		if (Process32First(hSnap, &procEntry)) {
 			do
 			{
-				if (!_wcsicmp(procEntry.szExeFile, procName)) {
+				if (!_stricmp(procEntry.szExeFile, procName)) {
 					procId = procEntry.th32ProcessID;
 					break;
 				}
@@ -22,7 +22,7 @@ DWORD GetProcessID(const wchar_t* procName){
 	CloseHandle(hSnap);
 	return procId;
 }
-uintptr_t GetModuleBaseAddress(DWORD procId, const wchar_t* modName) {
+uintptr_t GetModuleBaseAddress(DWORD procId, const char* modName) {
 	uintptr_t modBase = 0;
 
 	HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, procId);
@@ -31,7 +31,7 @@ uintptr_t GetModuleBaseAddress(DWORD procId, const wchar_t* modName) {
 		if (Module32First(hSnap, &modEntry)) {
 			do
 			{
-				if (!_wcsicmp(modEntry.szModule, modName)) {
+				if (!_stricmp(modEntry.szModule, modName)) {
 					modBase = (uintptr_t)modEntry.modBaseAddr;
 					break;
 				}
@@ -57,12 +57,12 @@ uintptr_t GetDMAAddress(HANDLE hProc, uintptr_t ptr, std::vector <unsigned int> 
 IzakayaResult GetIzakayaProcess()
 {
     IzakayaResult result;
-    DWORD procId = GetProcessID(L"Touhou Mystia Izakaya.exe");
+    DWORD procId = GetProcessID("Touhou Mystia Izakaya.exe");
     if (procId == 0) {
         result.code = IzakayaCode::PROCESS_NOT_FOUND;
         return result;
     }
-    uintptr_t modBase = GetModuleBaseAddress(procId, L"GameAssembly.dll");
+    uintptr_t modBase = GetModuleBaseAddress(procId, "GameAssembly.dll");
     if (modBase == 0) {
         result.code = IzakayaCode::BASE_ADDRESS_NOT_FOUND;
         return result;

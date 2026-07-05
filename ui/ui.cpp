@@ -32,7 +32,7 @@ MainFrame::MainFrame( wxWindow* parent, wxWindowID id, const wxString& title, co
 	bSizer1->Add( DetectingButton, 0, wxALL, 5 );
 
 
-	bSizer1->Add( 0, 0, 1, wxEXPAND, 5 );
+	bSizer1->Add( 0, 0, 0, wxEXPAND, 5 );
 
 	m_staticText14 = new wxStaticText( this, wxID_ANY, wxT("金钱"), wxDefaultPosition, wxDefaultSize, 0 );
 	m_staticText14->Wrap( -1 );
@@ -51,18 +51,14 @@ MainFrame::MainFrame( wxWindow* parent, wxWindowID id, const wxString& title, co
 	gSizer1->Add( ChangeButton, 0, wxALL|wxALIGN_RIGHT, 5 );
 
 
-	bSizer1->Add( gSizer1, 1, wxEXPAND, 5 );
+	bSizer1->Add( gSizer1, 0, wxEXPAND, 5 );
 
-
-	bSizer1->Add( 0, 0, 1, wxEXPAND, 5 );
 
 	AboutButton = new wxButton( this, wxID_ANY, wxT("关于"), wxDefaultPosition, wxDefaultSize, 0 );
 	bSizer1->Add( AboutButton, 0, wxALL, 5 );
 
 	m_textCtrl1 = new wxTextCtrl( this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxSize( 0,0 ), 0 );
 	m_textCtrl1->Hide();
-
-	bSizer1->Add( m_textCtrl1, 0, wxALL, 5 );
 
 
 	this->SetSizer( bSizer1 );
@@ -104,7 +100,7 @@ AboutDialog::AboutDialog( wxWindow* parent, wxWindowID id, const wxString& title
 
 	bSizer2->Add( 0, 0, 1, wxEXPAND, 5 );
 
-	m_staticText5 = new wxStaticText( this, wxID_ANY, wxT("本修改器由usfese制作。"), wxDefaultPosition, wxDefaultSize, 0 );
+	m_staticText5 = new wxStaticText( this, wxID_ANY, wxT("本修改器由usfese制作 wuyulbw维护"), wxDefaultPosition, wxDefaultSize, 0 );
 	m_staticText5->Wrap( -1 );
 	bSizer2->Add( m_staticText5, 0, wxALL, 5 );
 
@@ -113,13 +109,6 @@ AboutDialog::AboutDialog( wxWindow* parent, wxWindowID id, const wxString& title
 	fgSizer1->SetFlexibleDirection( wxBOTH );
 	fgSizer1->SetNonFlexibleGrowMode( wxFLEX_GROWMODE_SPECIFIED );
 
-	m_staticText7 = new wxStaticText( this, wxID_ANY, wxT("项目地址："), wxDefaultPosition, wxDefaultSize, 0 );
-	m_staticText7->Wrap( -1 );
-	fgSizer1->Add( m_staticText7, 0, wxALL, 5 );
-
-	m_hyperlink3 = new wxHyperlinkCtrl( this, wxID_ANY, wxT("Github"), wxT("https://github.com/usfese/IzakayaCheater"), wxDefaultPosition, wxDefaultSize, wxHL_DEFAULT_STYLE );
-	fgSizer1->Add( m_hyperlink3, 0, wxALL, 5 );
-
 	m_staticText10 = new wxStaticText( this, wxID_ANY, wxT("软件版本："), wxDefaultPosition, wxDefaultSize, 0 );
 	m_staticText10->Wrap( -1 );
 	fgSizer1->Add( m_staticText10, 0, wxALL, 5 );
@@ -127,10 +116,6 @@ AboutDialog::AboutDialog( wxWindow* parent, wxWindowID id, const wxString& title
 	versionText = new wxStaticText( this, wxID_ANY, wxT("0"), wxDefaultPosition, wxDefaultSize, 0 );
 	versionText->Wrap( -1 );
 	fgSizer1->Add( versionText, 0, wxALL, 5 );
-
-	m_staticText11 = new wxStaticText( this, wxID_ANY, wxT("支持游戏版本："), wxDefaultPosition, wxDefaultSize, 0 );
-	m_staticText11->Wrap( -1 );
-	fgSizer1->Add( m_staticText11, 0, wxALL, 5 );
 
 	supportedGameVersionText = new wxStaticText( this, wxID_ANY, wxT("0"), wxDefaultPosition, wxDefaultSize, 0 );
 	supportedGameVersionText->Wrap( -1 );

@@ -1,12 +1,32 @@
+# Build
+build/
+release/
+*.exe
+
+# IDE
+.vs/
+.vscode/
+*.user
 CMakeLists.txt.user
+
+# CMake
 CMakeCache.txt
-CMakeFiles
-CMakeScripts
-Testing
-Makefile
+CMakeFiles/
+CMakeScripts/
 cmake_install.cmake
-install_manifest.txt
-compile_commands.json
 CTestTestfile.cmake
-_deps
-build
+compile_commands.json
+DartConfiguration.tcl
+Testing/
+Makefile
+install_manifest.txt
+_deps/
+
+# Generated
+config.h
+
+# Archives
+*.tar.gz
+*.zip
+DLLS/*.dll
+installer.nsi
