@@ -349,7 +349,7 @@ static const char* BOSS5_MISSIONS[] = {"DLC5_Challenge_ArrestMizuchi_Mission"};
 static const char* BOSS5_SWITCHES[] = {"DLC5_Map_Makai_Portal", "DLC5_Makai_RestrictedZoneDoor"};
 
 static const BossUnlockDef BOSS_DEFS[] = {
-    {"最终挑战（幽幽子）", "A+B",
+    {"与幽幽子的决战", "A+B",
      "方案A：写 scheduledEvents = Challenge_Finale_P1。读档后立即开打本体最终战（幽幽子）。\n"
      "方案B：写入 finishedMissions。只把最终战标记为已完成，等于跳过，不会开打。",
      NULL, BOSS0_QUEUE, 1, NULL, 0, BOSS0_MISSIONS, 1, NULL, 0, false},
@@ -370,7 +370,7 @@ static const BossUnlockDef BOSS_DEFS[] = {
      "方案A：写 scheduledEvents = DLC4_Main_Part10_RepeatChallenge_Begin_Event。读档后立即开打（可自选难度）。\n"
      "方案B：写 finishedEvents = DLC4_Main_FlandreCabin_Enter_Event。之后到芙兰的房间对话选「再战」。",
      "DLC4", BOSS4_QUEUE, 1, BOSS4_EVENTS, 1, BOSS4_MISSIONS, 1, BOSS4_SWITCHES, 1, false},
-    {"逮捕蛟龙挑战赛", "A+B",
+    {"抓捕瑞灵", "A+B",
      "方案A：写 scheduledEvents = DLC5_RepeatChallenge_ArrestMizuchi_Enter_Event。读档后立即开打。\n"
      "方案B：写 finishedEvents = DLC5_Challenge_ArrestMizuchi_Successful_GoHome_Event，并打开月都/魔界门开关。之后到月都控制台选再战。",
      "DLC5", BOSS5_QUEUE, 1, BOSS5_EVENTS, 1, BOSS5_MISSIONS, 1, BOSS5_SWITCHES, 2, false}
