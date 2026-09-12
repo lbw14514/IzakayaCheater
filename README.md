@@ -32,7 +32,7 @@ DLC2 和 DLC3 的 Boss 战需要 12 角色满好感，太累了，所以写了�
 
 | 方案 | 写入位置 | 效果 |
 |---|---|---|
-| 方案A 排队事件 | `scheduledEvents`（用的就是游戏自身的 `RunTimeScheduler.ScheduleEventExtern`）| 读档后立刻执行该事件，直接进 Boss 战 |
+| 方案A 排队事件 | `scheduledEvents[当天]`（键 = `playerPartial.gameDate.day`）| 把事件挂进当天的事件桶。读档回到白天场景时游戏会执行当天桶里的待办事件，直接进 Boss 战；当天没反应就结束营业、推进一天再看 |
 | 方案B 标记通关 | `finishedEvents` / `finishedMissions` | 把该战标记成已完成，解锁游戏里的「再战」入口，需要自己去对应 NPC / 地点点一下 |
 | 方案C 添加邀请函 | 物品 2014~2019 | 刷好感，走原版路线（只有 DLC2 有）|
 
@@ -46,6 +46,8 @@ DLC2 和 DLC3 的 Boss 战需要 12 角色满好感，太累了，所以写了�
 | 瑞灵 | `DLC5_RepeatChallenge_ArrestMizuchi_Enter_Event` | finishedEvents：`DLC5_Challenge_ArrestMizuchi_Successful_GoHome_Event` | 月都控制台 |
 
 原来的「添加邀请函」「触发博丽大祭」两个独立按钮已合并掉：邀请函变成 DLC2 的方案C，博丽大祭直接由方案A 触发。
+
+> 注意：`scheduledEvents` 的键是**日期**（自然存档里能看到 `"62": ["Main_5_BambooForest_001_Event"]` 这种，键 = 该事件要触发的天）。`-1` 是「无日期」桶，游戏拿它放羁绊升级这类事件，往那儿写当天不会执行。方案A 已改为写「当天」的键。
 
 ---
 
