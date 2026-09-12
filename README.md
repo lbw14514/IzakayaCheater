@@ -1,6 +1,6 @@
 # IzakayaCheater
 
-东方夜雀食堂修改器，目前可以修改金钱、解锁全部地图、强开本体与 DLC1~DLC5 的 Boss 战。
+东方夜雀食堂修改器，目前可以加满好感、修改金钱、解锁全部地图、强开本体与 DLC1~DLC5 的 Boss 战。
 
 目前支持版本：鬼知道……（反正支持4.4.0）
 
@@ -8,7 +8,7 @@
 
 ## 为啥写这东西（对我个人来说）
 
-慢慢打 太累了
+慢慢打的话 太累了 虽然对于我来说做修改器更累了（？
 
 ---
 
@@ -19,11 +19,10 @@
 
 > [!WARNING]
 > 1. 操作前请先关闭 Steam 云同步（库 → 右键游戏 → 属性 → 通用 → 取消勾选「将游戏存档保留在 Steam 云」），否则云同步会把改过的存档还原回去
-> 2. **芙兰朵露的地下室怎么进**：进红魔馆后**直走，右侧的门**就是地下室入口，进去后再往里走就是「芙兰的家」，跟芙兰对话选「鬼捉人游戏」
-> 3. 只玩过本体的存档，先用「解锁全部地图」把 DLC 地区打开，不然地图上根本去不了
-> 4. 方案A「排队事件」**已停用（按钮置灰）**：只改存档 queue 实测触发不了，真正生效要在游戏运行时调用它自己的 `RunTimeScheduler.ScheduleEventExtern`，等于要改内存/注入（好心人来写写这部分功能罢）
-> 5. B方式开启时 如果你的进度未到需要章节 可能会丢失未完成的进度（再次强调 一定要备份 存档丢了很心疼）
-> 6. 请以**管理员身份**运行修改器
+> 2. 只玩过本体的存档，先用「解锁全部地图」把 DLC 地区打开，不然地图上根本去不了
+> 3. 方案A「排队事件」**已停用（按钮置灰）**：只改存档 queue 实测触发不了，真正生效要在游戏运行时调用它自己的 `RunTimeScheduler.ScheduleEventExtern`，等于要改内存/注入（好心人来写写这部分功能罢）
+> 4. B方式开启时 如果你的进度未到需要章节 可能会丢失未完成的进度（再次强调 一定要备份 存档丢了很心疼）
+> 5. 请以**管理员身份**运行修改器
 
 ---
 
@@ -45,8 +44,6 @@
 | 博丽大祭 | `DLC3_Repeat_GobackHakureiShrine_Event` | **方案B**：DLC3 羁绊 400 + 39 项开关（含 `DLC3_HakureiFestival_JienYuu`）+ 祭典任务/事件 | 博丽神社·时焉侑（进去右转） |
 | 芙兰朵露挑战赛 | `DLC4_Main_Part10_RepeatChallenge_Begin_Event` | finishedEvents：`DLC4_Main_FlandreCabin_Enter_Event`（芙兰登场判定，反汇编实测确认）+ 挑战完成事件，开关 `FirstTimeToSDMBasement` | **红魔馆进去直走，右侧的门**→ 地下室 → 芙兰的家，与芙兰对话 |
 | 瑞灵 | `DLC5_RepeatChallenge_ArrestMizuchi_Enter_Event` | finishedEvents：`DLC5_Challenge_ArrestMizuchi_Successful_GoHome_Event` | 月都控制台（直走） |
-
-原来的「添加邀请函」「触发博丽大祭」两个独立按钮已合并掉：邀请函变成 DLC2 的方案C，旧「触发博丽大祭」的全套写入（羁绊 + 39 项开关 + 祭典任务/事件）并入「博丽大祭」的方案B。
 
 > 注意：`scheduledEvents` 的键是**日期**（自然存档里能看到 `"62": ["Main_5_BambooForest_001_Event"]`，键 = 该事件要触发的那一天）。已试过写 `-1` 桶和写次日的键，都触发不了：`ScheduleEventExtern` 最终进的是带一堆前置校验的运行时常驻入口，光改存档队列没用。要真正通过事件触发，只能在游戏运行时调用它（注入/改内存），这个坑留给后来人。
 
@@ -89,19 +86,15 @@
 金钱
 playerPartial.fund
 
-DLC2 角色（ID: 2000~2005）
-albumPartialDLC.DLC2.specialSkinSelection
-
-DLC3 角色（ID: 3000~3005）
-albumPartialDLC.DLC3.specialSkinSelection
-
-邀请函 ID：2014~2019
+邀请函 ID
+2014~2019
 
 好感（所有角色都在这两个地方）
 albumPartial.specialSkinSelection.<角色ID>.CurrentBondExp / CurrentBondLevel
 albumPartialDLC.<DLC>.specialSkinSelection.<角色ID>.CurrentBondExp / CurrentBondLevel
 满好感 = CurrentBondExp 9999 + CurrentBondLevel 5（等级上限 5）
-角色 ID 段：本体 0~29、DLC1 1000~、DLC2 2000~、DLC3 3000~、DLC4 4000~、DLC5 5000~、音乐 2500
+角色 ID 段
+本体 0~29、DLC1 1000~1005、DLC2 2000~2005、DLC3 3000~3005、DLC4 4000~4005、DLC5 5000~5005
 
 39 项开关，控制游戏内各种状态
 dayScenePartial.trackedSwitch
@@ -120,8 +113,6 @@ schedulerPartialDLC.DLC3.finishedMissions
 
 schedulerPartialDLC.DLC3.finishedEvents
 已完成事件列表
-
---------- 以下为新加的 ---------
 
 Boss 战 A 事件（排队事件，写 schedulerPartialDLC.<DLC>.scheduledEvents，键=日期；已停用）
 本体      Challenge_Finale_P1
@@ -159,8 +150,6 @@ DLC5      DLC5_Makai / DLC5_LunarCapital
 DLC 激活列表
 allActivatedDLC: ["CORE", "DLC1", "DLC2", "DLC3", "DLC4", "DLC5"]
 
-芙兰的地下室路线
-红魔馆进去直走 -> 右侧的门 = 地下室（DLC4_ScarletMansionBasement）-> 芙兰的家（FlandreHomeMap）
 ```
 
 ---
