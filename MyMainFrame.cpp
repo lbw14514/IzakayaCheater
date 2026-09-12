@@ -143,6 +143,9 @@ void MyMainFrame::SetSaveResult(int ret)
         case 0:
             saveStatusText->SetLabel(_T("完成"));
             break;
+        case 1:
+            saveStatusText->SetLabel(_T("完成（已为该存档激活对应 DLC）"));
+            break;
         case -1:
             saveStatusText->SetLabel(_T("存档文件未找到!"));
             break;

@@ -295,6 +295,23 @@ static bool DlcActivated(char* buf, const char* dlcKey)
     return FindBefore(arr, end, needle) != NULL;
 }
 
+static int EnsureDlcActivated(char* buf, long cap, long* len, const char* dlcKey)
+{
+    if (!dlcKey) return 0;
+    char* key = FindKeyColon(buf, "allActivatedDLC");
+    if (!key) return 0;
+    char* arr = strchr(key, '[');
+    if (!arr) return 0;
+    char* end = FindArrayEnd(arr);
+    char needle[64];
+    _snprintf(needle, sizeof(needle), "\"%s\"", dlcKey);
+    if (FindBefore(arr, end, needle)) return 1;
+    char* at = SkipBackWs(end - 1, arr);
+    char text[96];
+    _snprintf(text, sizeof(text), "%s \"%s\"", at <= arr + 1 ? "" : ",", dlcKey);
+    return InsertAt(buf, cap, len, at - buf, text) ? 1 : 0;
+}
+
 struct BossUnlockDef
 {
     const char* label;
@@ -558,10 +575,14 @@ int SaveEditor_SetBossCleared(const char* path, int bossId)
     if (!buf) return (int)len;
     long cap = len + FILE_SLACK;
     int ret = -7;
+    bool activatedNow = false;
 
     if (!DlcActivated(buf, def.dlcKey)) {
-        free(buf);
-        return -5;
+        if (!def.dlcKey || !EnsureDlcActivated(buf, cap, &len, def.dlcKey)) {
+            free(buf);
+            return -5;
+        }
+        activatedNow = true;
     }
     char* block = EnsureDlcBlock(buf, cap, &len, def.dlcKey);
     if (block) {
@@ -577,7 +598,10 @@ int SaveEditor_SetBossCleared(const char* path, int bossId)
             for (int i = 0; i < def.clearSwitchCount && ok; i++)
                 ok = SetTrackedSwitch(buf, cap, &len, tsKey, def.clearSwitches[i], true);
         }
-        if (ok) ret = SaveEditedFile(path, buf, len);
+        if (ok) {
+            int written = SaveEditedFile(path, buf, len);
+            ret = (written == 0 && activatedNow) ? 1 : written;
+        }
     }
 
     free(buf);
