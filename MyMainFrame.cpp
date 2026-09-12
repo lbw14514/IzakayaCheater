@@ -65,7 +65,7 @@ MyMainFrame::MyMainFrame() : MainFrame(NULL, -1), myAboutDialog(NULL)
     sizer->Add(row5, 0, wxALIGN_CENTER_HORIZONTAL, 5);
 
     wxBoxSizer* row6 = new wxBoxSizer(wxHORIZONTAL);
-    bossQueueBtn = new wxButton(this, wxID_ANY, _T("方案A：排队事件（写 scheduledEvents）"));
+    bossQueueBtn = new wxButton(this, wxID_ANY, _T("方案A：排队事件（已停用）"));
     bossClearBtn = new wxButton(this, wxID_ANY, _T("方案B：标记通关（写 finishedEvents）"));
     bossInviteBtn = new wxButton(this, wxID_ANY, _T("方案C：添加邀请函（2014~2019）"));
     row6->Add(bossQueueBtn, 0, wxALL, 5);
