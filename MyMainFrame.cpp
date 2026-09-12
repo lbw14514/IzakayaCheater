@@ -4,6 +4,14 @@
 
 static const int MAX_SAVE_SLOTS = 16;
 
+static BOOL CALLBACK HideSpinButton(HWND hwnd, LPARAM lParam)
+{
+    TCHAR cls[64] = {0};
+    if (GetClassName(hwnd, cls, 64) && lstrcmp(cls, _T("msctls_updown32")) == 0)
+        ShowWindow(hwnd, SW_HIDE);
+    return TRUE;
+}
+
 MyMainFrame::MyMainFrame() : MainFrame(NULL, -1), myAboutDialog(NULL)
 {
     SetTitle(_T("东方夜雀食堂修改器"));
@@ -13,6 +21,8 @@ MyMainFrame::MyMainFrame() : MainFrame(NULL, -1), myAboutDialog(NULL)
     this->DetectingButton->Hide();
     this->m_staticText14->Hide();
     this->moneyCtrl->Hide();
+    if (wxSizer* moneySpinOwner = this->moneyCtrl->GetContainingSizer())
+        moneySpinOwner->Detach(this->moneyCtrl);
     this->ChangeButton->Hide();
     this->m_textCtrl1->Hide();
 
@@ -82,6 +92,12 @@ MyMainFrame::MyMainFrame() : MainFrame(NULL, -1), myAboutDialog(NULL)
     Layout();
     Fit();
     SetMinSize(GetSize());
+    CallAfter(&MyMainFrame::HideLegacySpinButton);
+}
+
+void MyMainFrame::HideLegacySpinButton()
+{
+    EnumChildWindows((HWND)GetHWND(), HideSpinButton, 0);
 }
 
 void MyMainFrame::OnAbout( wxCommandEvent& event )

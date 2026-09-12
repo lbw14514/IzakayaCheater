@@ -29,6 +29,7 @@ class MyMainFrame : public MainFrame
     void RefreshSaveList();
     void RefreshBossList();
     void UpdateBossButtons();
+    void HideLegacySpinButton();
     void SetSaveResult(int ret);
     MyMainFrame();
 };
