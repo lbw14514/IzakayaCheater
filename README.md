@@ -1,6 +1,6 @@
 # IzakayaCheater
 
-东方夜雀食堂修改器，可以修改金钱、强开本体与 DLC1~DLC5 的 Boss 战。
+东方夜雀食堂修改器，目前可以修改金钱、解锁全部地图、强开本体与 DLC1~DLC5 的 Boss 战。
 
 目前支持版本：鬼知道……（反正支持4.4.0）
 
@@ -19,10 +19,13 @@ DLC2 和 DLC3 的 Boss 战需要 12 角色满好感，太累了，所以写了�
 
 > [!WARNING]
 > 1. 操作前请先关闭 Steam 云同步（库 → 右键游戏 → 属性 → 通用 → 取消勾选「将游戏存档保留在 Steam 云」），否则云同步会把改过的存档还原回去
-> 2. 开启「博丽大祭」时 如果你的进度未到狸猫的情报大作战 可能会丢失 DLC3 未完成的进度（现在由「博丽大祭」的方案A 触发，风险相同）
-> 3. 博丽大祭开了后 去神社找时焉侑 目前在于没办法体验第一次博丽大祭 只能通过她来打 有点难受 希望好心人能帮忙）
-> 4. 原作者做的金钱修改似乎对新版本不支持 我（wuyulbw）改了一下无济于事 只能通过改存档的方式实现了
-> 5. 请以**管理员身份**运行修改器
+> 2. **芙兰朵露的地下室怎么进**：进红魔馆后**直走，右侧的门**就是地下室入口，进去后再往里走就是「芙兰的家」，跟芙兰对话选「再战」
+> 3. 只玩过本体的存档，先用「解锁全部地图」把 DLC 地区打开，不然地图上根本去不了（芙兰的地下室、月都、旧地狱这些都是 DLC 地图）
+> 4. 方案A「排队事件」**已停用（按钮置灰）**：只改存档 queue 实测触发不了，真正生效要在游戏运行时调用它自己的 `RunTimeScheduler.ScheduleEventExtern`，等于要改内存/注入
+> 5. 开启「博丽大祭」时 如果你的进度未到狸猫的情报大作战 可能会丢失 DLC3 未完成的进度
+> 6. 博丽大祭开了后 去神社找时焉侑 目前在于没办法体验第一次博丽大祭 只能通过她来打 有点难受 希望好心人帮忙）
+> 7. 原作者做的金钱修改似乎对新版本不支持 我（wuyulbw）改了一下无济于事 只能通过改存档的方式实现了
+> 8. 请以**管理员身份**运行修改器
 
 ---
 
@@ -41,11 +44,11 @@ DLC2 和 DLC3 的 Boss 战需要 12 角色满好感，太累了，所以写了�
 | 与幽幽子的决战 | `Challenge_Finale_P1` | 无判定，恒可用 | 幽幽子羁绊特殊对话 |
 | 饕餮挑战赛 | `DLC1_Main_Toutetsu_First_RepeatChallenge_P1` | finishedEvents：`DLC1_Main_Toutetsu_004_Challange_Success` | 妖怪山·荷取对话 |
 | 怪诞料理挑战赛 | `DLC2_Main_FormerHell_WeirdCooking_Challenge_P1` | **finishedMissions**：`DLC2_Main_FormerHell_WeirdCooking_Mission_Enter` | 旧地狱·阿燐对话 |
-| 博丽大祭 | `DLC3_Repeat_GobackHakureiShrine_Event` | 无判定，恒可用 | 博丽神社·时焉侑 |
-| 芙兰朵露挑战赛 | `DLC4_Main_Part10_RepeatChallenge_Begin_Event` | finishedEvents：`DLC4_Main_FlandreCabin_Enter_Event` | 芙兰的房间 |
+| 博丽大祭 | `DLC3_Repeat_GobackHakureiShrine_Event` | **方案B 会照搬旧「触发博丽大祭」全套**：DLC3 羁绊 400 + 39 项开关（含 `DLC3_HakureiFestival_JienYuu`）+ 祭典任务/事件 | 博丽神社·时焉侑 |
+| 芙兰朵露挑战赛 | `DLC4_Main_Part10_RepeatChallenge_Begin_Event` | finishedEvents：`DLC4_Main_FlandreCabin_Enter_Event`（芙兰登场判定，反汇编实测确认）+ 挑战完成事件，开关 `FirstTimeToSDMBasement` | **红魔馆进去直走，右侧的门**→ 地下室 → 芙兰的家，与芙兰对话 |
 | 瑞灵 | `DLC5_RepeatChallenge_ArrestMizuchi_Enter_Event` | finishedEvents：`DLC5_Challenge_ArrestMizuchi_Successful_GoHome_Event` | 月都控制台 |
 
-原来的「添加邀请函」「触发博丽大祭」两个独立按钮已合并掉：邀请函变成 DLC2 的方案C，博丽大祭直接由方案A 触发。
+原来的「添加邀请函」「触发博丽大祭」两个独立按钮已合并掉：邀请函变成 DLC2 的方案C，旧「触发博丽大祭」的全套写入（羁绊 + 39 项开关 + 祭典任务/事件）并入「博丽大祭」的方案B。
 
 > 注意：`scheduledEvents` 的键是**日期**（自然存档里能看到 `"62": ["Main_5_BambooForest_001_Event"]`，键 = 该事件要触发的那一天）。已试过写 `-1` 桶和写次日的键，都触发不了：`ScheduleEventExtern` 最终进的是带一堆前置校验的运行时常驻入口，光改存档队列没用。要真正通过事件触发，只能在游戏运行时调用它（注入/改内存），这个坑留给后来人。
 
@@ -73,6 +76,9 @@ DLC2 和 DLC3 的 Boss 战需要 12 角色满好感，太累了，所以写了�
 ## 核心数据
 
 ```text
+金钱
+playerPartial.fund
+
 DLC2 角色（ID: 2000~2005）
 albumPartialDLC.DLC2.specialSkinSelection
 
@@ -99,8 +105,46 @@ schedulerPartialDLC.DLC3.finishedMissions
 schedulerPartialDLC.DLC3.finishedEvents
 已完成事件列表
 
-playerPartial.fund
-存档金钱
+--------- 以下为新加的 ---------
+
+Boss 战 A 事件（排队事件，写 schedulerPartialDLC.<DLC>.scheduledEvents，键=日期；已停用）
+本体      Challenge_Finale_P1
+DLC1      DLC1_Main_Toutetsu_First_RepeatChallenge_P1
+DLC2      DLC2_Main_FormerHell_WeirdCooking_Challenge_P1
+DLC3      DLC3_Repeat_GobackHakureiShrine_Event
+DLC4      DLC4_Main_Part10_RepeatChallenge_Begin_Event
+DLC5      DLC5_RepeatChallenge_ArrestMizuchi_Enter_Event
+
+Boss 战 B 判定（写完成数组，解锁游戏里的「再战」入口，要自己去点）
+本体      finishedMissions: Main_5_BambooForest_023_Mission（只标记完成，不开打）
+DLC1      finishedEvents: DLC1_Main_Toutetsu_004_Challange_Success
+DLC2      finishedMissions: DLC2_Main_FormerHell_WeirdCooking_Mission_Enter
+DLC3      羁绊 400 + 39 项开关 + finishedEvents: DLC3_Main_Part4_Mission_Finished_Event
+          + finishedMissions: DLC3_Main_Part4_KizunaProgress_Mission /
+            DLC3_Main_Part4.5.3_GuidedMission / DLC3_Main_Part8_HakureiFestivalChallenge_GuidedMission
+DLC4      finishedEvents: DLC4_Main_FlandreCabin_Enter_Event（她的登场判定）/
+            DLC4_Main_Part10_FlandreChallenge_Finished_Event /
+            DLC4_Main_Part10_FlandreChallenge_Success_GoHome_Event
+          开关 FirstTimeToSDMBasement: true
+DLC5      finishedEvents: DLC5_Challenge_ArrestMizuchi_Successful_GoHome_Event
+          开关 DLC5_Map_Makai_Portal / DLC5_Makai_RestrictedZoneDoor: true
+
+地图解锁（全置 true）
+dayScenePartial.daySceneMapStatusData
+dayScenePartialDLC.<DLC>.daySceneMapStatusData
+
+本体      BeastForest / HakureiShrine / HumanVillage / BambooForest / ScarletMansion / Hakugyokurou
+DLC1      DLC1_MagicForest / DLC1_YoukaiMountain
+DLC2      DLC2_FormerHell / DLC2_EarthSpiritsPalace
+DLC3      DLC3_MyourenTemple / DLC3_DivineSpiritMausoleum
+DLC4      DLC4_GardenOfTheSun / DLC4_ShiningNeedleCastle / DLC4_ScarletMansionBasement
+DLC5      DLC5_Makai / DLC5_LunarCapital
+
+DLC 激活列表
+allActivatedDLC: ["CORE", "DLC1", "DLC2", "DLC3", "DLC4", "DLC5"]
+
+芙兰的地下室路线
+红魔馆进去直走 -> 右侧的门 = 地下室（DLC4_ScarletMansionBasement）-> 芙兰的家（FlandreHomeMap）
 ```
 
 ---
