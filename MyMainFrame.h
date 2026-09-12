@@ -17,6 +17,7 @@ class MyMainFrame : public MainFrame
     wxButton* bossClearBtn;
     wxButton* bossInviteBtn;
     wxButton* mapUnlockBtn;
+    wxButton* bondsMaxBtn;
     wxStaticText* bossDescText;
 
     public:
@@ -27,6 +28,7 @@ class MyMainFrame : public MainFrame
     void OnMarkBossCleared( wxCommandEvent& event );
     void OnAddInvitationForBoss( wxCommandEvent& event );
     void OnUnlockMaps( wxCommandEvent& event );
+    void OnMaxAllBonds( wxCommandEvent& event );
     void OnBossChanged( wxCommandEvent& event );
     void RefreshSaveList();
     void RefreshBossList();

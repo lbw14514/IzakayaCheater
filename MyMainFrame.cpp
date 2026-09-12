@@ -59,9 +59,12 @@ MyMainFrame::MyMainFrame() : MainFrame(NULL, -1), myAboutDialog(NULL)
 
     wxBoxSizer* rowMap = new wxBoxSizer(wxHORIZONTAL);
     mapUnlockBtn = new wxButton(this, wxID_ANY, _T("解锁全部地图（本体 + DLC1~5）"));
+    bondsMaxBtn = new wxButton(this, wxID_ANY, _T("全部满好感"));
     rowMap->Add(mapUnlockBtn, 0, wxALL, 5);
+    rowMap->Add(bondsMaxBtn, 0, wxALL, 5);
     sizer->Add(rowMap, 0, wxALIGN_CENTER_HORIZONTAL, 5);
     mapUnlockBtn->Bind(wxEVT_BUTTON, &MyMainFrame::OnUnlockMaps, this);
+    bondsMaxBtn->Bind(wxEVT_BUTTON, &MyMainFrame::OnMaxAllBonds, this);
 
     wxBoxSizer* row5 = new wxBoxSizer(wxHORIZONTAL);
     row5->Add(new wxStaticText(this, wxID_ANY, _T("Boss 战")), 0, wxALL|wxALIGN_CENTER_VERTICAL, 5);
@@ -218,6 +221,24 @@ void MyMainFrame::OnUnlockMaps( wxCommandEvent& event )
     int ret = SaveEditor_UnlockAllMaps(path);
     if (ret >= 0)
         saveStatusText->SetLabel(wxString::Format(_T("完成（新解锁 %d / %d 张地图）"), ret, SaveEditor_GetMapCount()));
+    else
+        SetSaveResult(ret);
+}
+
+void MyMainFrame::OnMaxAllBonds( wxCommandEvent& event )
+{
+    int sel = saveSlotChoice->GetSelection();
+    if (sel == wxNOT_FOUND) { saveStatusText->SetLabel(_T("请先选择存档!")); return; }
+    int slot = (int)(intptr_t)saveSlotChoice->GetClientData(sel);
+    int answer = wxMessageBox(_T("会把这个存档里所有角色的好感改满（等级 5），是否继续？"), _T("确认"), wxYES_NO | wxICON_QUESTION);
+    if (answer != wxYES) return;
+    char path[MAX_PATH];
+    if (SaveEditor_GetPath(slot, path, sizeof(path)) != 0) { saveStatusText->SetLabel(_T("存档路径获取失败!")); return; }
+    int ret = SaveEditor_MaxAllBonds(path);
+    if (ret >= 0)
+        saveStatusText->SetLabel(wxString::Format(_T("完成（%d 个角色好感已满）"), ret));
+    else if (ret == -8)
+        saveStatusText->SetLabel(_T("该存档里没有好感数据!"));
     else
         SetSaveResult(ret);
 }

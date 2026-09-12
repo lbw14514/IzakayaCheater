@@ -73,6 +73,16 @@ DLC2 和 DLC3 的 Boss 战需要 12 角色满好感，太累了，所以写了�
 
 ---
 
+## 全部满好感
+
+按钮在「解锁全部地图」右边，不依赖 Boss 选择。把 `albumPartial.specialSkinSelection` 与 `albumPartialDLC.<DLC>.specialSkinSelection` 里**所有角色**的 `CurrentBondExp` 改成 `9999`、`CurrentBondLevel` 改成 `5`（游戏满级就是 5）。只改这两个数字，存档里其它内容一个字节不动。
+
+返回值：`>=0` = 改动的角色数（满进度档 78 个，纯本体档 29 个），`-4` 写入失败，`-8` 该存档没有好感数据。重复点结果一样。
+
+> DLC2/DLC3 的「满好感」只是同一批数据，所以这个按钮也能一次把 DLC2/DLC3 的条件做完。
+
+---
+
 ## 核心数据
 
 ```text
@@ -86,6 +96,12 @@ DLC3 角色（ID: 3000~3005）
 albumPartialDLC.DLC3.specialSkinSelection
 
 邀请函 ID：2014~2019
+
+好感（所有角色都在这两个地方）
+albumPartial.specialSkinSelection.<角色ID>.CurrentBondExp / CurrentBondLevel
+albumPartialDLC.<DLC>.specialSkinSelection.<角色ID>.CurrentBondExp / CurrentBondLevel
+满好感 = CurrentBondExp 9999 + CurrentBondLevel 5（等级上限 5）
+角色 ID 段：本体 0~29、DLC1 1000~、DLC2 2000~、DLC3 3000~、DLC4 4000~、DLC5 5000~、音乐 2500
 
 39 项开关，控制游戏内各种状态
 dayScenePartial.trackedSwitch

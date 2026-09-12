@@ -28,6 +28,7 @@ int SaveEditor_QueueBossEvents(const char* path, int bossId);
 int SaveEditor_SetBossCleared(const char* path, int bossId);
 int SaveEditor_UnlockAllMaps(const char* path);
 int SaveEditor_GetMapCount(void);
+int SaveEditor_MaxAllBonds(const char* path);
 
 #ifdef __cplusplus
 }

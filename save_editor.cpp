@@ -15,6 +15,8 @@ static const char* DLC3_BOND_EXP_VALUE = "400";
 static const char* BOND_LVL_VALUE = "5";
 static const char BOND_EXP_KEY[] = "\"CurrentBondExp\": ";
 static const char BOND_LVL_KEY[] = "\"CurrentBondLevel\": ";
+// Values used by the "max all bonds" action (level 5 is the game's cap).
+static const char* BOND_MAX_EXP_VALUE = "9999";
 // Extra bytes past the file size when loading a save for in-place edits;
 // must cover every insertion performed on the buffer.
 static const long FILE_SLACK = 16384;
@@ -664,6 +666,40 @@ int SaveEditor_UnlockAllMaps(const char* path)
 int SaveEditor_GetMapCount(void)
 {
     return MAP_TOTAL_COUNT;
+}
+
+// Every character bond lives in <album root>.specialSkinSelection[id].
+// CurrentBondExp / CurrentBondLevel; maxing them out is just rewriting those
+// two numbers, so nothing else in the save is touched.
+int SaveEditor_MaxAllBonds(const char* path)
+{
+    long len = 0;
+    char* buf = LoadFileForEdit(path, &len);
+    if (!buf) return (int)len;
+
+    if (!strstr(buf, "\"specialSkinSelection\"")) {
+        free(buf);
+        return -8;
+    }
+
+    int entries = 0;
+    char* p = buf;
+    while ((p = strstr(p, BOND_EXP_KEY)) != NULL) {
+        char* v = p + strlen(BOND_EXP_KEY);
+        len += OverwriteNumber(v, BOND_MAX_EXP_VALUE);
+        entries++;
+        p = v + strlen(BOND_MAX_EXP_VALUE);
+    }
+    p = buf;
+    while ((p = strstr(p, BOND_LVL_KEY)) != NULL) {
+        char* v = p + strlen(BOND_LVL_KEY);
+        len += OverwriteNumber(v, BOND_LVL_VALUE);
+        p = v + strlen(BOND_LVL_VALUE);
+    }
+
+    int ret = (SaveEditedFile(path, buf, len) == 0) ? entries : -4;
+    free(buf);
+    return ret;
 }
 
 int SaveEditor_GetBossCount(void)
