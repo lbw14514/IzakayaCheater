@@ -17,6 +17,16 @@ int SaveEditor_SetKizunaMission(const char* path);
 int SaveEditor_TriggerFestival(const char* path);
 int SaveEditor_TriggerFestivalSlot(int slot);
 
+int SaveEditor_GetBossCount(void);
+const char* SaveEditor_GetBossLabel(int bossId);
+const char* SaveEditor_GetBossMethods(int bossId);
+const char* SaveEditor_GetBossDesc(int bossId);
+int SaveEditor_BossHasQueue(int bossId);
+int SaveEditor_BossHasClear(int bossId);
+int SaveEditor_BossHasInvite(int bossId);
+int SaveEditor_QueueBossEvents(const char* path, int bossId);
+int SaveEditor_SetBossCleared(const char* path, int bossId);
+
 #ifdef __cplusplus
 }
 #endif

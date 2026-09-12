@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(IzakayaCheater VERSION 0.2.3 LANGUAGES CXX)
+project(IzakayaCheater VERSION 0.3.0 LANGUAGES CXX)
 
 configure_file(config.h.in config.h)
 
@@ -10,7 +10,6 @@ add_executable(IzakayaCheater
     main.cpp
     ui/ui.cpp
     MyMainFrame.cpp
-    utils.cpp
     MyAboutDialog.cpp
     save_editor.cpp)
 

@@ -1,39 +1,34 @@
 #pragma once
 #include "ui/ui.h"
 #include <wx/choice.h>
-#include "utils.h"
 #include "MyAboutDialog.h"
 #include "save_editor.h"
 
 class MyMainFrame : public MainFrame
 {
     private:
-    uintptr_t modBase;
-    HANDLE hProc;
     MyAboutDialog* myAboutDialog;
     wxChoice* saveSlotChoice;
     wxButton* refreshSaveBtn;
-    wxButton* addInvitationBtn;
     wxTextCtrl* saveMoneyCtrl;
     wxStaticText* saveStatusText;
+    wxChoice* bossChoice;
+    wxButton* bossQueueBtn;
+    wxButton* bossClearBtn;
+    wxButton* bossInviteBtn;
+    wxStaticText* bossDescText;
 
     public:
-    void SetModBase(uintptr_t modBase){this->modBase = modBase;}
-    uintptr_t GetModBase(){return this->modBase;}
-    void SetHProc(HANDLE hProc){this->hProc = hProc;}
-    HANDLE GetHProc(){return this->hProc;}
-    virtual inline void OnDetect( wxCommandEvent& event ){Detect();}
-    virtual void OnChange( wxCommandEvent& event );
     virtual void OnAbout( wxCommandEvent& event );
-    virtual void OnTextEnter( wxCommandEvent& event );
-    void OnAddInvitation( wxCommandEvent& event );
     void OnRefreshSaves( wxCommandEvent& event );
-    void OnTriggerFestival( wxCommandEvent& event );
     void OnSaveMoney( wxCommandEvent& event );
+    void OnQueueBoss( wxCommandEvent& event );
+    void OnMarkBossCleared( wxCommandEvent& event );
+    void OnAddInvitationForBoss( wxCommandEvent& event );
+    void OnBossChanged( wxCommandEvent& event );
     void RefreshSaveList();
+    void RefreshBossList();
+    void UpdateBossButtons();
     void SetSaveResult(int ret);
     MyMainFrame();
-
-    void Detect();
-    void Change();
 };

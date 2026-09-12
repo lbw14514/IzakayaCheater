@@ -13,6 +13,5 @@ bool MyApp::OnInit()
 {
     MyMainFrame* frame = new MyMainFrame();
     frame->Show();
-    frame->Detect();
     return true;
 }

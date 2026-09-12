@@ -114,9 +114,10 @@ static long SetBondEntryNumbers(char* entry, char** entryEnd, const char* expVal
 
 // Sets the bond exp/level of every id in ids within the JSON object spanning
 // [brace, *end). *end is adjusted in place because replacements shift the
-// buffer contents.
-static void SetBondEntries(char* brace, char** end, const int* ids, int count, const char* expValue)
+// buffer contents. Returns the total shift applied to the whole buffer.
+static long SetBondEntries(char* brace, char** end, const int* ids, int count, const char* expValue)
 {
+    long shift = 0;
     for (int i = 0; i < count; i++) {
         char id_str[32];
         _snprintf(id_str, sizeof(id_str), "\"%d\": {", ids[i]);
@@ -125,8 +126,11 @@ static void SetBondEntries(char* brace, char** end, const int* ids, int count, c
         char* ob = strchr(entry, '{');
         if (!ob) continue;
         char* entryEnd = FindObjectEnd(ob);
-        *end += SetBondEntryNumbers(entry, &entryEnd, expValue);
+        long applied = SetBondEntryNumbers(entry, &entryEnd, expValue);
+        *end += applied;
+        shift += applied;
     }
+    return shift;
 }
 
 // Inserts text at pos, growing *len; refuses when it would exceed cap bytes.
@@ -139,6 +143,418 @@ static bool InsertAt(char* buf, long cap, long* len, long pos, const char* text)
     memcpy(buf + pos, text, text_len);
     *len += text_len;
     return true;
+}
+
+static void ReplaceRange(char* buf, long cap, long* len, long pos, long oldLen, const char* text)
+{
+    long newLen = (long)strlen(text);
+    long shift = newLen - oldLen;
+    if (*len + shift + 1 > cap) return;
+    memmove(buf + pos + newLen, buf + pos + oldLen, *len - (pos + oldLen) + 1);
+    memcpy(buf + pos, text, newLen);
+    *len += shift;
+}
+
+static char* SkipBackWs(char* p, char* stop)
+{
+    while (p > stop && (p[-1] == ' ' || p[-1] == '\n' || p[-1] == '\r' || p[-1] == '\t')) p--;
+    return p;
+}
+
+static bool IsEmptyObject(char* openBrace)
+{
+    return SkipBackWs(FindObjectEnd(openBrace) - 1, openBrace) <= openBrace + 1;
+}
+
+// First occurrence of needle that starts before end, or NULL.
+static char* FindBefore(char* start, char* end, const char* needle)
+{
+    char* hit = strstr(start, needle);
+    if (!hit || hit >= end) return NULL;
+    return hit;
+}
+
+// Finds "\"key\":" anywhere in the buffer (the game writes "key": value).
+static char* FindKeyColon(char* buf, const char* key)
+{
+    char pattern[160];
+    _snprintf(pattern, sizeof(pattern), "\"%s\":", key);
+    return strstr(buf, pattern);
+}
+
+// Object value of key inside the object starting at objOpen.
+static char* FindChildObject(char* objOpen, const char* key)
+{
+    char* objEnd = FindObjectEnd(objOpen);
+    char pattern[160];
+    _snprintf(pattern, sizeof(pattern), "\"%s\":", key);
+    char* k = FindBefore(objOpen, objEnd, pattern);
+    if (!k) return NULL;
+    char* o = strchr(k, '{');
+    if (!o || o >= objEnd) return NULL;
+    return o;
+}
+
+// Array value of key inside the object starting at objOpen.
+static char* FindChildArray(char* objOpen, const char* key)
+{
+    char* objEnd = FindObjectEnd(objOpen);
+    char pattern[160];
+    _snprintf(pattern, sizeof(pattern), "\"%s\":", key);
+    char* k = FindBefore(objOpen, objEnd, pattern);
+    if (!k) return NULL;
+    char* a = strchr(k, '[');
+    if (!a || a >= objEnd) return NULL;
+    return a;
+}
+
+// Appends value to the array at bracket unless it is already there. The caller
+// must re-resolve bracket after every call because the buffer shifts.
+static bool AppendArrayValue(char* buf, long cap, long* len, char* bracket, const char* value)
+{
+    if (*bracket != '[') return false;
+    char* close = FindArrayEnd(bracket);
+    if (!close || close[-1] != ']') return false;
+    char needle[192];
+    _snprintf(needle, sizeof(needle), "\"%s\"", value);
+    if (FindBefore(bracket, close, needle)) return true;
+    char* at = SkipBackWs(close - 1, bracket);
+    char text[224];
+    _snprintf(text, sizeof(text), "%s\n      \"%s\"\n    ", at <= bracket + 1 ? "" : ",", value);
+    return InsertAt(buf, cap, len, at - buf, text);
+}
+
+// Adds values to the key of an object, creating the array when it is missing.
+static bool EnsureArrayValues(char* buf, long cap, long* len, char* objOpen, const char* key, const char* const* values, int count)
+{
+    if (!FindChildArray(objOpen, key)) {
+        char list[1024];
+        int n = _snprintf(list, sizeof(list), "\"%s\": [", key);
+        if (n <= 0 || n >= (int)sizeof(list)) return false;
+        long used = n;
+        for (int i = 0; i < count; i++) {
+            n = _snprintf(list + used, sizeof(list) - used, "%s\"%s\"", i ? ", " : "", values[i]);
+            if (n <= 0 || n >= (int)(sizeof(list) - used)) return false;
+            used += n;
+        }
+        _snprintf(list + used, sizeof(list) - used, "]");
+        char* objEnd = FindObjectEnd(objOpen);
+        char* at = SkipBackWs(objEnd - 1, objOpen);
+        char text[1100];
+        _snprintf(text, sizeof(text), "%s\n      %s", IsEmptyObject(objOpen) ? "" : ",", list);
+        return InsertAt(buf, cap, len, at - buf, text);
+    }
+    for (int i = 0; i < count; i++) {
+        char* arr = FindChildArray(objOpen, key);
+        if (!arr) return false;
+        if (!AppendArrayValue(buf, cap, len, arr, values[i])) return false;
+    }
+    return true;
+}
+
+// Creates the DLC section of schedulerPartialDLC / schedulerPartial when the
+// save predates that DLC, so unrelated player progress stays untouched.
+static char* EnsureDlcBlock(char* buf, long cap, long* len, const char* dlcKey)
+{
+    const char* rootKey = dlcKey ? "schedulerPartialDLC" : "schedulerPartial";
+    char* root = FindKeyColon(buf, rootKey);
+    if (!root) return NULL;
+    if (!dlcKey) return strchr(root, '{');
+    char* rootOpen = strchr(root, '{');
+    if (!rootOpen) return NULL;
+    char* rootEnd = FindObjectEnd(rootOpen);
+    char pattern[64];
+    _snprintf(pattern, sizeof(pattern), "\"%s\":", dlcKey);
+    char* k = FindBefore(rootOpen, rootEnd, pattern);
+    if (k) return strchr(k, '{');
+    char text[512];
+    _snprintf(text, sizeof(text),
+        "%s\n    \"%s\": {\n      \"dlcSaveDate\": 0,\n      \"scheduledEvents\": {},\n"
+        "      \"scheduledNews\": {},\n      \"scheduledNewsReplaceContents\": {},\n"
+        "      \"allTrackingMissions\": {},\n      \"finishedEvents\": [],\n      \"finishedMissions\": []\n    }",
+        IsEmptyObject(rootOpen) ? "" : ",", dlcKey);
+    char* at = SkipBackWs(rootEnd - 1, rootOpen);
+    if (!InsertAt(buf, cap, len, at - buf, text)) return NULL;
+    root = FindKeyColon(buf, rootKey);
+    rootOpen = strchr(root, '{');
+    rootEnd = FindObjectEnd(rootOpen);
+    k = FindBefore(rootOpen, rootEnd, pattern);
+    return k ? strchr(k, '{') : NULL;
+}
+
+static bool DlcActivated(char* buf, const char* dlcKey)
+{
+    if (!dlcKey) return true;
+    char* key = FindKeyColon(buf, "allActivatedDLC");
+    if (!key) return false;
+    char* arr = strchr(key, '[');
+    if (!arr) return false;
+    char* end = FindArrayEnd(arr);
+    char needle[64];
+    _snprintf(needle, sizeof(needle), "\"%s\"", dlcKey);
+    return FindBefore(arr, end, needle) != NULL;
+}
+
+struct BossUnlockDef
+{
+    const char* label;
+    const char* methods;
+    const char* desc;
+    const char* dlcKey;
+    const char* const* queueEvents;
+    int queueCount;
+    const char* const* clearEvents;
+    int clearCount;
+    const char* const* clearMissions;
+    int clearMissionCount;
+    const char* const* clearSwitches;
+    int clearSwitchCount;
+    bool hasInvite;
+};
+
+static const char* BOSS0_QUEUE[] = {"Challenge_Finale_P1"};
+static const char* BOSS0_MISSIONS[] = {"Main_5_BambooForest_023_Mission"};
+
+static const char* BOSS1_QUEUE[] = {
+    "DLC1_Main_Toutetsu_First_RepeatChallenge_P1"
+};
+static const char* BOSS1_EVENTS[] = {
+    "DLC1_Main_Toutetsu_004_Challange_Success"
+};
+static const char* BOSS1_MISSIONS[] = {"DLC1_Main_Toutetsu_004_Mission"};
+static const char* BOSS1_SWITCHES[] = {"Kyouko_Tutorial_Toutetsu"};
+
+static const char* BOSS2_QUEUE[] = {"DLC2_Main_FormerHell_WeirdCooking_Challenge_P1"};
+static const char* BOSS2_MISSIONS[] = {"DLC2_Main_FormerHell_WeirdCooking_Mission_Enter"};
+
+static const char* BOSS3_QUEUE[] = {"DLC3_Repeat_GobackHakureiShrine_Event"};
+static const char* BOSS3_EVENTS[] = {
+    "DLC3_MausoleumCuisineCompetition_Result_P1",
+    "DLC3_MausoleumCuisineCompetition_Result_P2"
+};
+static const char* BOSS3_MISSIONS[] = {"DLC3_MausoleumCuisineCompetition_Mission"};
+
+static const char* BOSS4_QUEUE[] = {"DLC4_Main_Part10_RepeatChallenge_Begin_Event"};
+static const char* BOSS4_EVENTS[] = {
+    "DLC4_Main_FlandreCabin_Enter_Event"
+};
+static const char* BOSS4_MISSIONS[] = {"DLC4_Main_Part10_Mission"};
+static const char* BOSS4_SWITCHES[] = {"FirstTimeToSDMBasement"};
+
+static const char* BOSS5_QUEUE[] = {"DLC5_RepeatChallenge_ArrestMizuchi_Enter_Event"};
+static const char* BOSS5_EVENTS[] = {
+    "DLC5_Challenge_ArrestMizuchi_Successful_GoHome_Event"
+};
+static const char* BOSS5_MISSIONS[] = {"DLC5_Challenge_ArrestMizuchi_Mission"};
+static const char* BOSS5_SWITCHES[] = {"DLC5_Map_Makai_Portal", "DLC5_Makai_RestrictedZoneDoor"};
+
+static const BossUnlockDef BOSS_DEFS[] = {
+    {"最终挑战（幽幽子）", "A+B",
+     "方案A：写 scheduledEvents = Challenge_Finale_P1。读档后立即开打本体最终战（幽幽子）。\n"
+     "方案B：写入 finishedMissions。只把最终战标记为已完成，等于跳过，不会开打。",
+     NULL, BOSS0_QUEUE, 1, NULL, 0, BOSS0_MISSIONS, 1, NULL, 0, false},
+    {"饕餮挑战赛", "A+B",
+     "方案A：写 scheduledEvents = DLC1_Main_Toutetsu_First_RepeatChallenge_P1。读档后立即开打。\n"
+     "方案B：写 finishedEvents = DLC1_Main_Toutetsu_004_Challange_Success。之后到妖怪山找荷取对话，选「再战」。",
+     "DLC1", BOSS1_QUEUE, 1, BOSS1_EVENTS, 1, BOSS1_MISSIONS, 1, BOSS1_SWITCHES, 1, false},
+    {"怪诞料理挑战赛", "A+B+C",
+     "方案A：写 scheduledEvents = DLC2_Main_FormerHell_WeirdCooking_Challenge_P1。读档后立即开打。\n"
+     "方案B：写 finishedMissions = DLC2_Main_FormerHell_WeirdCooking_Mission_Enter（阿燐的再战选项读任务完成数组）。之后找阿燐对话。\n"
+     "方案C：添加邀请函（物品 2014~2019）刷好感，走原版路线。对应下方「方案C」按钮。",
+     "DLC2", BOSS2_QUEUE, 1, NULL, 0, BOSS2_MISSIONS, 1, NULL, 0, true},
+    {"博丽大祭", "A+B",
+     "方案A：写 scheduledEvents = DLC3_Repeat_GobackHakureiShrine_Event。读档后立即开打。\n"
+     "方案B：写 finishedEvents（料理对决结果）。之后在游戏内开启博丽大祭，到神社找时焉侑选挑战。",
+     "DLC3", BOSS3_QUEUE, 1, BOSS3_EVENTS, 2, BOSS3_MISSIONS, 1, NULL, 0, false},
+    {"芙兰朵露挑战赛", "A+B",
+     "方案A：写 scheduledEvents = DLC4_Main_Part10_RepeatChallenge_Begin_Event。读档后立即开打（可自选难度）。\n"
+     "方案B：写 finishedEvents = DLC4_Main_FlandreCabin_Enter_Event。之后到芙兰的房间对话选「再战」。",
+     "DLC4", BOSS4_QUEUE, 1, BOSS4_EVENTS, 1, BOSS4_MISSIONS, 1, BOSS4_SWITCHES, 1, false},
+    {"逮捕蛟龙挑战赛", "A+B",
+     "方案A：写 scheduledEvents = DLC5_RepeatChallenge_ArrestMizuchi_Enter_Event。读档后立即开打。\n"
+     "方案B：写 finishedEvents = DLC5_Challenge_ArrestMizuchi_Successful_GoHome_Event，并打开月都/魔界门开关。之后到月都控制台选再战。",
+     "DLC5", BOSS5_QUEUE, 1, BOSS5_EVENTS, 1, BOSS5_MISSIONS, 1, BOSS5_SWITCHES, 2, false}
+};
+
+static const int BOSS_DEF_COUNT = (int)(sizeof(BOSS_DEFS) / sizeof(BOSS_DEFS[0]));
+
+static const char* SWITCH_KEYS[] = {
+    "Aya_FamousIzakaya",
+    "Lantern_A_Display",
+    "Lantern_B_Display",
+    "Lantern_C_Display",
+    "Lantern_D_Display",
+    "Lantern_E_Display",
+    "MengChengGuo",
+    "3Faries",
+    "DLC2.5_MusicMachine",
+    "DLC3_Main_Part3_PalmCivet",
+    "Kyouko_Tutorial_Top",
+    "Kyouko_Tutorial_Preset",
+    "Kyouko_Tutorial_Showcase",
+    "Kyouko_Tutorial_Closet",
+    "Kyouko_Tutorial_CDPlayer",
+    "Kyouko_Tutorial_SpellCard",
+    "Kyouko_Tutorial_Kourindou",
+    "Kyouko_Tutorial_Hakugyokurou",
+    "Kyouko_Tutorial_DLC",
+    "Kyouko_Tutorial_ForDLC1MainStory",
+    "HumanVillage_Farmland_A_Disabled",
+    "HumanVillage_Farmland_B_Disabled",
+    "HumanVillage_Farmland_C_Disabled",
+    "DLC1_MagicForest_MagicTree_Green",
+    "DLC5_Map_Makai_Portal",
+    "Aunn_Stone",
+    "DLC5_Main_Part6_Tenshi",
+    "DLC3_HakureiFestival_RepeatChallenge_JienYuuCharacter",
+    "DLC3_HakureiFestival_JienYuu",
+    "Daiyousei_Ice",
+    "Sakuya_Door",
+    "TBC2_Collab_Has_Interact",
+    "3FARIES_Collab_Has_Interact",
+    "MC_Gensokyo_Has_Interact",
+    "TBS_Kokoro",
+    "TBS_Kokoro_Has_Interact",
+    "TRACKED_SWITCH_RINNOSUKE_WELCOME",
+    "TRACKED_SWITCH_RINNOSUKE_GETCOUPLE",
+    "THYG_Has_Interact"
+};
+
+static const bool SWITCH_VALUES[] = {
+    false, true, true, true, true, true, true, true, true, false,
+    true, true, true, true, true, true, true, false, true, false,
+    false, false, false, false, false, true, false, true, true, false,
+    true, true, true, true, false, true, false, true, true
+};
+
+static const int SWITCH_KEY_COUNT = (int)(sizeof(SWITCH_KEYS) / sizeof(SWITCH_KEYS[0]));
+
+static bool SetTrackedSwitch(char* buf, long cap, long* len, char* tsKey, const char* key, bool value)
+{
+    if (!tsKey) return false;
+    char* objOpen = strchr(tsKey, '{');
+    if (!objOpen) return false;
+    char* objEnd = FindObjectEnd(objOpen);
+    char pattern[160];
+    _snprintf(pattern, sizeof(pattern), "\"%s\":", key);
+    char* k = FindBefore(objOpen, objEnd, pattern);
+    if (k) {
+        char* colon = strchr(k, ':');
+        if (!colon || colon >= objEnd) return false;
+        char* v = colon + 1;
+        while (*v == ' ' && v < objEnd) v++;
+        bool current = (strncmp(v, "true", 4) == 0);
+        if (current == value) return true;
+        ReplaceRange(buf, cap, len, v - buf, current ? 4 : 5, value ? "true" : "false");
+        return true;
+    }
+    char* at = SkipBackWs(objEnd - 1, objOpen);
+    char text[192];
+    _snprintf(text, sizeof(text), "%s\n      \"%s\": %s", at <= objOpen + 1 ? "" : ",", key, value ? "true" : "false");
+    return InsertAt(buf, cap, len, at - buf, text);
+}
+
+int SaveEditor_GetBossCount(void)
+{
+    return BOSS_DEF_COUNT;
+}
+
+const char* SaveEditor_GetBossLabel(int bossId)
+{
+    if (bossId < 0 || bossId >= BOSS_DEF_COUNT) return "";
+    return BOSS_DEFS[bossId].label;
+}
+
+const char* SaveEditor_GetBossMethods(int bossId)
+{
+    if (bossId < 0 || bossId >= BOSS_DEF_COUNT) return "";
+    return BOSS_DEFS[bossId].methods;
+}
+
+const char* SaveEditor_GetBossDesc(int bossId)
+{
+    if (bossId < 0 || bossId >= BOSS_DEF_COUNT) return "";
+    return BOSS_DEFS[bossId].desc;
+}
+
+int SaveEditor_BossHasQueue(int bossId)
+{
+    if (bossId < 0 || bossId >= BOSS_DEF_COUNT) return 0;
+    return BOSS_DEFS[bossId].queueCount > 0 ? 1 : 0;
+}
+
+int SaveEditor_BossHasClear(int bossId)
+{
+    if (bossId < 0 || bossId >= BOSS_DEF_COUNT) return 0;
+    const BossUnlockDef& def = BOSS_DEFS[bossId];
+    return (def.clearCount > 0 || def.clearMissionCount > 0 || def.clearSwitchCount > 0) ? 1 : 0;
+}
+
+int SaveEditor_BossHasInvite(int bossId)
+{
+    if (bossId < 0 || bossId >= BOSS_DEF_COUNT) return 0;
+    return BOSS_DEFS[bossId].hasInvite ? 1 : 0;
+}
+
+int SaveEditor_QueueBossEvents(const char* path, int bossId)
+{
+    if (bossId < 0 || bossId >= BOSS_DEF_COUNT) return -3;
+    const BossUnlockDef& def = BOSS_DEFS[bossId];
+    if (def.queueCount <= 0) return -6;
+
+    long len = 0;
+    char* buf = LoadFileForEdit(path, &len);
+    if (!buf) return (int)len;
+    long cap = len + FILE_SLACK;
+    int ret = -7;
+
+    if (!DlcActivated(buf, def.dlcKey)) {
+        free(buf);
+        return -5;
+    }
+    char* block = EnsureDlcBlock(buf, cap, &len, def.dlcKey);
+    char* scheduled = block ? FindChildObject(block, "scheduledEvents") : NULL;
+    if (scheduled && EnsureArrayValues(buf, cap, &len, scheduled, "-1", def.queueEvents, def.queueCount))
+        ret = SaveEditedFile(path, buf, len);
+
+    free(buf);
+    return ret;
+}
+
+int SaveEditor_SetBossCleared(const char* path, int bossId)
+{
+    if (bossId < 0 || bossId >= BOSS_DEF_COUNT) return -3;
+    const BossUnlockDef& def = BOSS_DEFS[bossId];
+
+    long len = 0;
+    char* buf = LoadFileForEdit(path, &len);
+    if (!buf) return (int)len;
+    long cap = len + FILE_SLACK;
+    int ret = -7;
+
+    if (!DlcActivated(buf, def.dlcKey)) {
+        free(buf);
+        return -5;
+    }
+    char* block = EnsureDlcBlock(buf, cap, &len, def.dlcKey);
+    if (block) {
+        bool ok = true;
+        if (def.clearCount > 0)
+            ok = EnsureArrayValues(buf, cap, &len, block, "finishedEvents", def.clearEvents, def.clearCount);
+        if (ok && def.clearMissionCount > 0) {
+            block = EnsureDlcBlock(buf, cap, &len, def.dlcKey);
+            ok = block && EnsureArrayValues(buf, cap, &len, block, "finishedMissions", def.clearMissions, def.clearMissionCount);
+        }
+        if (ok && def.clearSwitchCount > 0) {
+            char* tsKey = FindKeyColon(buf, "trackedSwitch");
+            for (int i = 0; i < def.clearSwitchCount && ok; i++)
+                ok = SetTrackedSwitch(buf, cap, &len, tsKey, def.clearSwitches[i], true);
+        }
+        if (ok) ret = SaveEditedFile(path, buf, len);
+    }
+
+    free(buf);
+    return ret;
 }
 
 int SaveEditor_GetPath(int slot, char* path, DWORD size)
@@ -167,9 +583,10 @@ int SaveEditor_AddInvitations(const char* path)
 
     long insert_pos = items_close - buf;
     for (int i = 0; i < INV_COUNT; i++) {
-        // The comma decision must reflect the buffer as it is now; a stale
-        // pointer produced invalid JSON when the items object started empty.
-        int has_comma = (insert_pos > 0 && buf[insert_pos - 1] != '{');
+        // Whitespace must be skipped too: an empty items object may be written
+        // as "{ }" instead of "{}".
+        char* at = SkipBackWs(buf + insert_pos, brace);
+        int has_comma = (at > brace + 1);
         char entry[32];
         _snprintf(entry, sizeof(entry), "%s\n    \"%d\": 1", has_comma ? "," : "", INV_IDS[i]);
         if (!InsertAt(buf, cap, &len, insert_pos, entry)) break;
@@ -298,67 +715,20 @@ int SaveEditor_TriggerFestival(const char* path)
                 char* brace = strchr(sss, '{');
                 if (brace) {
                     char* end = FindObjectEnd(brace);
-                    SetBondEntries(brace, &end, DLC3_BOND_IDS, BOND_ID_COUNT, DLC3_BOND_EXP_VALUE);
+                    len += SetBondEntries(brace, &end, DLC3_BOND_IDS, BOND_ID_COUNT, DLC3_BOND_EXP_VALUE);
                 }
             }
         }
     }
 
-    // 2. Replace trackedSwitch
-    char* ts = strstr(buf, "\"trackedSwitch\"");
+    // 2. Merge trackedSwitch, keeping switches this tool does not know about
+    char* ts = FindKeyColon(buf, "trackedSwitch");
     if (ts) {
-        char* brace = strchr(ts, '{');
-        if (brace) {
-            char* end = FindObjectEnd(brace);
-            const char* new_ts =
-                "\"trackedSwitch\": {\n"
-                "      \"Aya_FamousIzakaya\": false,\n"
-                "      \"Lantern_A_Display\": true,\n"
-                "      \"Lantern_B_Display\": true,\n"
-                "      \"Lantern_C_Display\": true,\n"
-                "      \"Lantern_D_Display\": true,\n"
-                "      \"Lantern_E_Display\": true,\n"
-                "      \"MengChengGuo\": true,\n"
-                "      \"3Faries\": true,\n"
-                "      \"DLC2.5_MusicMachine\": true,\n"
-                "      \"DLC3_Main_Part3_PalmCivet\": false,\n"
-                "      \"Kyouko_Tutorial_Top\": true,\n"
-                "      \"Kyouko_Tutorial_Preset\": true,\n"
-                "      \"Kyouko_Tutorial_Showcase\": true,\n"
-                "      \"Kyouko_Tutorial_Closet\": true,\n"
-                "      \"Kyouko_Tutorial_CDPlayer\": true,\n"
-                "      \"Kyouko_Tutorial_SpellCard\": true,\n"
-                "      \"Kyouko_Tutorial_Kourindou\": true,\n"
-                "      \"Kyouko_Tutorial_Hakugyokurou\": false,\n"
-                "      \"Kyouko_Tutorial_DLC\": true,\n"
-                "      \"Kyouko_Tutorial_ForDLC1MainStory\": false,\n"
-                "      \"HumanVillage_Farmland_A_Disabled\": false,\n"
-                "      \"HumanVillage_Farmland_B_Disabled\": false,\n"
-                "      \"HumanVillage_Farmland_C_Disabled\": false,\n"
-                "      \"DLC1_MagicForest_MagicTree_Green\": false,\n"
-                "      \"DLC5_Map_Makai_Portal\": false,\n"
-                "      \"Aunn_Stone\": true,\n"
-                "      \"DLC5_Main_Part6_Tenshi\": false,\n"
-                "      \"DLC3_HakureiFestival_RepeatChallenge_JienYuuCharacter\": true,\n"
-                "      \"DLC3_HakureiFestival_JienYuu\": true,\n"
-                "      \"Daiyousei_Ice\": false,\n"
-                "      \"Sakuya_Door\": true,\n"
-                "      \"TBC2_Collab_Has_Interact\": true,\n"
-                "      \"3FARIES_Collab_Has_Interact\": true,\n"
-                "      \"MC_Gensokyo_Has_Interact\": true,\n"
-                "      \"TBS_Kokoro\": false,\n"
-                "      \"TBS_Kokoro_Has_Interact\": true,\n"
-                "      \"TRACKED_SWITCH_RINNOSUKE_WELCOME\": false,\n"
-                "      \"TRACKED_SWITCH_RINNOSUKE_GETCOUPLE\": true,\n"
-                "      \"THYG_Has_Interact\": true\n"
-                "    }";
-            long old_len = end - ts;
-            long new_len = (long)strlen(new_ts);
-            long shift = new_len - old_len;
-            if (len + shift + 1 > cap) { free(buf); return -2; }
-            memmove(end + shift, end, strlen(end) + 1);
-            memcpy(ts, new_ts, new_len);
-            len += shift;
+        for (int i = 0; i < SWITCH_KEY_COUNT; i++) {
+            if (!SetTrackedSwitch(buf, cap, &len, ts, SWITCH_KEYS[i], SWITCH_VALUES[i])) {
+                free(buf);
+                return -2;
+            }
         }
     }
 
@@ -487,7 +857,13 @@ int SaveEditor_SetFund(const char* path, int value)
     char* buf = LoadFileForEdit(path, &len);
     if (!buf) return (int)len;
 
-    char* fund = strstr(buf, "\"fund\"");
+    char* player = FindKeyColon(buf, "playerPartial");
+    if (!player) { free(buf); return -3; }
+    char* playerOpen = strchr(player, '{');
+    if (!playerOpen) { free(buf); return -3; }
+    char* playerEnd = FindObjectEnd(playerOpen);
+    // Scoped to playerPartial: a bare "fund" may also match an unrelated key.
+    char* fund = FindBefore(playerOpen, playerEnd, "\"fund\"");
     if (!fund) { free(buf); return -3; }
     char* colon = strchr(fund, ':');
     if (!colon) { free(buf); return -3; }
