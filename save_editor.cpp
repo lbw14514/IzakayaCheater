@@ -350,28 +350,28 @@ static const char* BOSS5_SWITCHES[] = {"DLC5_Map_Makai_Portal", "DLC5_Makai_Rest
 
 static const BossUnlockDef BOSS_DEFS[] = {
     {"与幽幽子的决战", "A+B",
-     "方案A：写 scheduledEvents[当天] = Challenge_Finale_P1。读档后回到白天场景时触发本体最终战（幽幽子）。\n"
+     "方案A：把事件排到第二天。读档后当天营业结束、推进到第二天时会直接进战斗。\n"
      "方案B：写入 finishedMissions。只把最终战标记为已完成，等于跳过，不会开打。",
      NULL, BOSS0_QUEUE, 1, NULL, 0, BOSS0_MISSIONS, 1, NULL, 0, false},
     {"饕餮挑战赛", "A+B",
-     "方案A：写 scheduledEvents[当天] = DLC1_Main_Toutetsu_First_RepeatChallenge_P1。读档后回到白天场景时触发。\n"
+     "方案A：把事件排到第二天。读档后当天营业结束、推进到第二天时会直接进战斗。\n"
      "方案B：写 finishedEvents = DLC1_Main_Toutetsu_004_Challange_Success。之后到妖怪山找荷取对话，选「再战」。",
      "DLC1", BOSS1_QUEUE, 1, BOSS1_EVENTS, 1, BOSS1_MISSIONS, 1, BOSS1_SWITCHES, 1, false},
     {"怪诞料理挑战赛", "A+B+C",
-     "方案A：写 scheduledEvents[当天] = DLC2_Main_FormerHell_WeirdCooking_Challenge_P1。读档后回到白天场景时触发。\n"
+     "方案A：把事件排到第二天。读档后当天营业结束、推进到第二天时会直接进战斗。\n"
      "方案B：写 finishedMissions = DLC2_Main_FormerHell_WeirdCooking_Mission_Enter（阿燐的再战选项读任务完成数组）。之后找阿燐对话。\n"
      "方案C：添加邀请函（物品 2014~2019）刷好感，走原版路线。对应下方「方案C」按钮。",
      "DLC2", BOSS2_QUEUE, 1, NULL, 0, BOSS2_MISSIONS, 1, NULL, 0, true},
     {"博丽大祭", "A+B",
-     "方案A：写 scheduledEvents[当天] = DLC3_Repeat_GobackHakureiShrine_Event。读档后回到白天场景时触发。\n"
+     "方案A：把事件排到第二天。读档后当天营业结束、推进到第二天时会直接进战斗。\n"
      "方案B：写 finishedEvents（料理对决结果）。之后在游戏内开启博丽大祭，到神社找时焉侑选挑战。",
      "DLC3", BOSS3_QUEUE, 1, BOSS3_EVENTS, 2, BOSS3_MISSIONS, 1, NULL, 0, false},
     {"芙兰朵露挑战赛", "A+B",
-     "方案A：写 scheduledEvents[当天] = DLC4_Main_Part10_RepeatChallenge_Begin_Event。读档后回到白天场景时触发（可自选难度）。\n"
+     "方案A：把事件排到第二天。读档后当天营业结束、推进到第二天时会直接进战斗（可自选难度）。\n"
      "方案B：写 finishedEvents = DLC4_Main_FlandreCabin_Enter_Event。之后到芙兰的房间对话选「再战」。",
      "DLC4", BOSS4_QUEUE, 1, BOSS4_EVENTS, 1, BOSS4_MISSIONS, 1, BOSS4_SWITCHES, 1, false},
     {"瑞灵", "A+B",
-     "方案A：写 scheduledEvents[当天] = DLC5_RepeatChallenge_ArrestMizuchi_Enter_Event。读档后回到白天场景时触发。\n"
+     "方案A：把事件排到第二天。读档后当天营业结束、推进到第二天时会直接进战斗。\n"
      "方案B：写 finishedEvents = DLC5_Challenge_ArrestMizuchi_Successful_GoHome_Event，并打开月都/魔界门开关。之后到月都控制台选再战。",
      "DLC5", BOSS5_QUEUE, 1, BOSS5_EVENTS, 1, BOSS5_MISSIONS, 1, BOSS5_SWITCHES, 2, false}
 };
@@ -496,7 +496,7 @@ int SaveEditor_BossHasInvite(int bossId)
     return BOSS_DEFS[bossId].hasInvite ? 1 : 0;
 }
 
-static int GetCurrentDay(char* buf, char* keyOut, int keySize)
+static int GetNextDay(char* buf, char* keyOut, int keySize)
 {
     char* gd = FindKeyColon(buf, "gameDate");
     if (!gd) return 0;
@@ -512,7 +512,7 @@ static int GetCurrentDay(char* buf, char* keyOut, int keySize)
     if (v >= end || *v < '0' || *v > '9') return 0;
     int day = 0;
     while (v < end && *v >= '0' && *v <= '9') { day = day * 10 + (*v - '0'); v++; }
-    _snprintf(keyOut, keySize, "%d", day);
+    _snprintf(keyOut, keySize, "%d", day + 1);
     return 1;
 }
 
@@ -533,7 +533,7 @@ int SaveEditor_QueueBossEvents(const char* path, int bossId)
         return -5;
     }
     char dayKey[32];
-    if (!GetCurrentDay(buf, dayKey, sizeof(dayKey)))
+    if (!GetNextDay(buf, dayKey, sizeof(dayKey)))
         strcpy(dayKey, "-1");
 
     char* block = EnsureDlcBlock(buf, cap, &len, def.dlcKey);
