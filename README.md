@@ -8,7 +8,7 @@
 
 ## 为啥写这东西（对我个人来说）
 
-DLC2 和 DLC3 的 Boss 战需要 12 角色满好感，太累了，所以写了。
+慢慢打 太累了
 
 ---
 
@@ -19,17 +19,15 @@ DLC2 和 DLC3 的 Boss 战需要 12 角色满好感，太累了，所以写了�
 
 > [!WARNING]
 > 1. 操作前请先关闭 Steam 云同步（库 → 右键游戏 → 属性 → 通用 → 取消勾选「将游戏存档保留在 Steam 云」），否则云同步会把改过的存档还原回去
-> 2. **芙兰朵露的地下室怎么进**：进红魔馆后**直走，右侧的门**就是地下室入口，进去后再往里走就是「芙兰的家」，跟芙兰对话选「再战」
-> 3. 只玩过本体的存档，先用「解锁全部地图」把 DLC 地区打开，不然地图上根本去不了（芙兰的地下室、月都、旧地狱这些都是 DLC 地图）
-> 4. 方案A「排队事件」**已停用（按钮置灰）**：只改存档 queue 实测触发不了，真正生效要在游戏运行时调用它自己的 `RunTimeScheduler.ScheduleEventExtern`，等于要改内存/注入
-> 5. 开启「博丽大祭」时 如果你的进度未到狸猫的情报大作战 可能会丢失 DLC3 未完成的进度
-> 6. 博丽大祭开了后 去神社找时焉侑 目前在于没办法体验第一次博丽大祭 只能通过她来打 有点难受 希望好心人帮忙）
-> 7. 原作者做的金钱修改似乎对新版本不支持 我（wuyulbw）改了一下无济于事 只能通过改存档的方式实现了
-> 8. 请以**管理员身份**运行修改器
+> 2. **芙兰朵露的地下室怎么进**：进红魔馆后**直走，右侧的门**就是地下室入口，进去后再往里走就是「芙兰的家」，跟芙兰对话选「鬼捉人游戏」
+> 3. 只玩过本体的存档，先用「解锁全部地图」把 DLC 地区打开，不然地图上根本去不了
+> 4. 方案A「排队事件」**已停用（按钮置灰）**：只改存档 queue 实测触发不了，真正生效要在游戏运行时调用它自己的 `RunTimeScheduler.ScheduleEventExtern`，等于要改内存/注入（好心人来写写这部分功能罢）
+> 5. B方式开启时 如果你的进度未到需要章节 可能会丢失未完成的进度（再次强调 一定要备份 存档丢了很心疼）
+> 6. 请以**管理员身份**运行修改器
 
 ---
 
-## 用法
+## 强开战斗
 
 选存档 → 选战斗 → 点方案：
 
@@ -42,11 +40,11 @@ DLC2 和 DLC3 的 Boss 战需要 12 角色满好感，太累了，所以写了�
 | 战斗（下拉显示名）| 方案A 事件 | 方案B 判定 | 再战入口 |
 |---|---|---|---|
 | 与幽幽子的决战 | `Challenge_Finale_P1` | 无判定，恒可用 | 幽幽子羁绊特殊对话 |
-| 饕餮挑战赛 | `DLC1_Main_Toutetsu_First_RepeatChallenge_P1` | finishedEvents：`DLC1_Main_Toutetsu_004_Challange_Success` | 妖怪山·荷取对话 |
-| 怪诞料理挑战赛 | `DLC2_Main_FormerHell_WeirdCooking_Challenge_P1` | **finishedMissions**：`DLC2_Main_FormerHell_WeirdCooking_Mission_Enter` | 旧地狱·阿燐对话 |
-| 博丽大祭 | `DLC3_Repeat_GobackHakureiShrine_Event` | **方案B 会照搬旧「触发博丽大祭」全套**：DLC3 羁绊 400 + 39 项开关（含 `DLC3_HakureiFestival_JienYuu`）+ 祭典任务/事件 | 博丽神社·时焉侑 |
+| 饕餮挑战赛 | `DLC1_Main_Toutetsu_First_RepeatChallenge_P1` | finishedEvents：`DLC1_Main_Toutetsu_004_Challange_Success` | 妖怪山·荷取对话（山顶） |
+| 怪诞料理挑战赛 | `DLC2_Main_FormerHell_WeirdCooking_Challenge_P1` | **finishedMissions**：`DLC2_Main_FormerHell_WeirdCooking_Mission_Enter` | 地灵殿·阿燐对话（办公室门口 右转） |
+| 博丽大祭 | `DLC3_Repeat_GobackHakureiShrine_Event` | **方案B**：DLC3 羁绊 400 + 39 项开关（含 `DLC3_HakureiFestival_JienYuu`）+ 祭典任务/事件 | 博丽神社·时焉侑（进去右转） |
 | 芙兰朵露挑战赛 | `DLC4_Main_Part10_RepeatChallenge_Begin_Event` | finishedEvents：`DLC4_Main_FlandreCabin_Enter_Event`（芙兰登场判定，反汇编实测确认）+ 挑战完成事件，开关 `FirstTimeToSDMBasement` | **红魔馆进去直走，右侧的门**→ 地下室 → 芙兰的家，与芙兰对话 |
-| 瑞灵 | `DLC5_RepeatChallenge_ArrestMizuchi_Enter_Event` | finishedEvents：`DLC5_Challenge_ArrestMizuchi_Successful_GoHome_Event` | 月都控制台 |
+| 瑞灵 | `DLC5_RepeatChallenge_ArrestMizuchi_Enter_Event` | finishedEvents：`DLC5_Challenge_ArrestMizuchi_Successful_GoHome_Event` | 月都控制台（直走） |
 
 原来的「添加邀请函」「触发博丽大祭」两个独立按钮已合并掉：邀请函变成 DLC2 的方案C，旧「触发博丽大祭」的全套写入（羁绊 + 39 项开关 + 祭典任务/事件）并入「博丽大祭」的方案B。
 
@@ -82,6 +80,8 @@ DLC2 和 DLC3 的 Boss 战需要 12 角色满好感，太累了，所以写了�
 > DLC2/DLC3 的「满好感」只是同一批数据，所以这个按钮也能一次把 DLC2/DLC3 的条件做完。
 
 ---
+
+# 开发数据如下
 
 ## 核心数据
 
