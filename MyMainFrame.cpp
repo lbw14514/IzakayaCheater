@@ -57,6 +57,12 @@ MyMainFrame::MyMainFrame() : MainFrame(NULL, -1), myAboutDialog(NULL)
     sizer->Add(row4, 0, wxALIGN_CENTER_HORIZONTAL, 5);
     saveMoneyBtn->Bind(wxEVT_BUTTON, &MyMainFrame::OnSaveMoney, this);
 
+    wxBoxSizer* rowMap = new wxBoxSizer(wxHORIZONTAL);
+    mapUnlockBtn = new wxButton(this, wxID_ANY, _T("解锁全部地图（本体 + DLC1~5）"));
+    rowMap->Add(mapUnlockBtn, 0, wxALL, 5);
+    sizer->Add(rowMap, 0, wxALIGN_CENTER_HORIZONTAL, 5);
+    mapUnlockBtn->Bind(wxEVT_BUTTON, &MyMainFrame::OnUnlockMaps, this);
+
     wxBoxSizer* row5 = new wxBoxSizer(wxHORIZONTAL);
     row5->Add(new wxStaticText(this, wxID_ANY, _T("Boss 战")), 0, wxALL|wxALIGN_CENTER_VERTICAL, 5);
     bossChoice = new wxChoice(this, wxID_ANY);
@@ -198,6 +204,22 @@ void MyMainFrame::OnAddInvitationForBoss( wxCommandEvent& event )
     if (answer != wxYES) { saveStatusText->SetLabel(_T("已取消")); return; }
     int slot = (int)(intptr_t)saveSlotChoice->GetClientData(sel);
     SetSaveResult(SaveEditor_AddInvitationsToSlot(slot));
+}
+
+void MyMainFrame::OnUnlockMaps( wxCommandEvent& event )
+{
+    int sel = saveSlotChoice->GetSelection();
+    if (sel == wxNOT_FOUND) { saveStatusText->SetLabel(_T("请先选择存档!")); return; }
+    int slot = (int)(intptr_t)saveSlotChoice->GetClientData(sel);
+    int answer = wxMessageBox(_T("会为该存档解锁全部地图（本体 + DLC1~5）并写入 DLC 激活项，是否继续？"), _T("确认"), wxYES_NO | wxICON_QUESTION);
+    if (answer != wxYES) return;
+    char path[MAX_PATH];
+    if (SaveEditor_GetPath(slot, path, sizeof(path)) != 0) { saveStatusText->SetLabel(_T("存档路径获取失败!")); return; }
+    int ret = SaveEditor_UnlockAllMaps(path);
+    if (ret >= 0)
+        saveStatusText->SetLabel(wxString::Format(_T("完成（新解锁 %d / %d 张地图）"), ret, SaveEditor_GetMapCount()));
+    else
+        SetSaveResult(ret);
 }
 
 void MyMainFrame::RefreshBossList()

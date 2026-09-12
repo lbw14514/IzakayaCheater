@@ -16,6 +16,7 @@ class MyMainFrame : public MainFrame
     wxButton* bossQueueBtn;
     wxButton* bossClearBtn;
     wxButton* bossInviteBtn;
+    wxButton* mapUnlockBtn;
     wxStaticText* bossDescText;
 
     public:
@@ -25,6 +26,7 @@ class MyMainFrame : public MainFrame
     void OnQueueBoss( wxCommandEvent& event );
     void OnMarkBossCleared( wxCommandEvent& event );
     void OnAddInvitationForBoss( wxCommandEvent& event );
+    void OnUnlockMaps( wxCommandEvent& event );
     void OnBossChanged( wxCommandEvent& event );
     void RefreshSaveList();
     void RefreshBossList();

@@ -19,6 +19,37 @@ static const char BOND_LVL_KEY[] = "\"CurrentBondLevel\": ";
 // must cover every insertion performed on the buffer.
 static const long FILE_SLACK = 16384;
 
+// daySceneMapStatusData holds one map-id -> unlocked flag per scene block: the
+// core maps live in dayScenePartial, every DLC in its own dayScenePartialDLC
+// entry. Unlocking a map is just flipping these flags to true.
+static const char* CORE_MAP_IDS[] = {
+    "BeastForest", "HakureiShrine", "HumanVillage",
+    "BambooForest", "ScarletMansion", "Hakugyokurou"
+};
+static const int CORE_MAP_COUNT = (int)(sizeof(CORE_MAP_IDS) / sizeof(CORE_MAP_IDS[0]));
+static const char* DLC1_MAP_IDS[] = {"DLC1_MagicForest", "DLC1_YoukaiMountain"};
+static const char* DLC2_MAP_IDS[] = {"DLC2_FormerHell", "DLC2_EarthSpiritsPalace"};
+static const char* DLC3_MAP_IDS[] = {"DLC3_MyourenTemple", "DLC3_DivineSpiritMausoleum"};
+static const char* DLC4_MAP_IDS[] = {"DLC4_GardenOfTheSun", "DLC4_ShiningNeedleCastle", "DLC4_ScarletMansionBasement"};
+static const char* DLC5_MAP_IDS[] = {"DLC5_Makai", "DLC5_LunarCapital"};
+
+struct MapGroupDef
+{
+    const char* dlcKey;
+    const char* const* ids;
+    int count;
+};
+
+static const MapGroupDef MAP_GROUPS[] = {
+    {"DLC1", DLC1_MAP_IDS, 2},
+    {"DLC2", DLC2_MAP_IDS, 2},
+    {"DLC3", DLC3_MAP_IDS, 2},
+    {"DLC4", DLC4_MAP_IDS, 3},
+    {"DLC5", DLC5_MAP_IDS, 2}
+};
+static const int MAP_GROUP_COUNT = (int)(sizeof(MAP_GROUPS) / sizeof(MAP_GROUPS[0]));
+static const int MAP_TOTAL_COUNT = CORE_MAP_COUNT + 11;
+
 // Returns the pointer just past the closing brace of the JSON object starting
 // at brace (or the NUL terminator when the object is unbalanced).
 static char* FindObjectEnd(char* brace)
@@ -446,10 +477,10 @@ static const bool SWITCH_VALUES[] = {
 
 static const int SWITCH_KEY_COUNT = (int)(sizeof(SWITCH_KEYS) / sizeof(SWITCH_KEYS[0]));
 
-static bool SetTrackedSwitch(char* buf, long cap, long* len, char* tsKey, const char* key, bool value)
+// Sets "key": value inside the object starting at objOpen, creating the key
+// when it is missing.
+static bool SetChildBool(char* buf, long cap, long* len, char* objOpen, const char* key, bool value)
 {
-    if (!tsKey) return false;
-    char* objOpen = strchr(tsKey, '{');
     if (!objOpen) return false;
     char* objEnd = FindObjectEnd(objOpen);
     char pattern[160];
@@ -469,6 +500,165 @@ static bool SetTrackedSwitch(char* buf, long cap, long* len, char* tsKey, const 
     char text[192];
     _snprintf(text, sizeof(text), "%s\n      \"%s\": %s", at <= objOpen + 1 ? "" : ",", key, value ? "true" : "false");
     return InsertAt(buf, cap, len, at - buf, text);
+}
+
+static bool SetTrackedSwitch(char* buf, long cap, long* len, char* tsKey, const char* key, bool value)
+{
+    if (!tsKey) return false;
+    return SetChildBool(buf, cap, len, strchr(tsKey, '{'), key, value);
+}
+
+// Number of ids already set to true inside the object at objOpen.
+static int CountChildBoolTrue(char* objOpen, const char* const* ids, int count)
+{
+    if (!objOpen) return 0;
+    char* objEnd = FindObjectEnd(objOpen);
+    int found = 0;
+    for (int i = 0; i < count; i++) {
+        char pattern[160];
+        _snprintf(pattern, sizeof(pattern), "\"%s\":", ids[i]);
+        char* k = FindBefore(objOpen, objEnd, pattern);
+        if (!k) continue;
+        char* colon = strchr(k, ':');
+        if (!colon || colon >= objEnd) continue;
+        char* v = colon + 1;
+        while (v < objEnd && (*v == ' ' || *v == '\t')) v++;
+        if (v + 4 > objEnd) continue;
+        if (strncmp(v, "true", 4) == 0) found++;
+    }
+    return found;
+}
+
+// Object value of key inside the object at parentOpen, created empty when the
+// save predates it.
+static char* EnsureChildBlock(char* buf, long cap, long* len, char* parentOpen, const char* key)
+{
+    char* existing = FindChildObject(parentOpen, key);
+    if (existing) return existing;
+    char* parentEnd = FindObjectEnd(parentOpen);
+    char* at = SkipBackWs(parentEnd - 1, parentOpen);
+    char text[192];
+    _snprintf(text, sizeof(text), "%s\n    \"%s\": {}", IsEmptyObject(parentOpen) ? "" : ",", key);
+    if (!InsertAt(buf, cap, len, at - buf, text)) return NULL;
+    return FindChildObject(parentOpen, key);
+}
+
+// daySceneMapStatusData object of the block at blockOpen, built with every map
+// of the group unlocked when the block does not carry one yet.
+static char* EnsureMapStatusObject(char* buf, long cap, long* len, char* blockOpen, const char* const* ids, int count)
+{
+    char* obj = FindChildObject(blockOpen, "daySceneMapStatusData");
+    if (obj) return obj;
+    char list[1024];
+    int n = _snprintf(list, sizeof(list), "\"daySceneMapStatusData\": {");
+    if (n <= 0 || n >= (int)sizeof(list)) return NULL;
+    long used = n;
+    for (int i = 0; i < count; i++) {
+        n = _snprintf(list + used, sizeof(list) - used, "%s\n        \"%s\": true", i ? "," : "", ids[i]);
+        if (n <= 0 || n >= (int)(sizeof(list) - used)) return NULL;
+        used += n;
+    }
+    n = _snprintf(list + used, sizeof(list) - used, "\n      }");
+    if (n <= 0 || n >= (int)(sizeof(list) - used)) return NULL;
+    char text[1152];
+    _snprintf(text, sizeof(text), "%s\n      %s", IsEmptyObject(blockOpen) ? "" : ",", list);
+    char* blockEnd = FindObjectEnd(blockOpen);
+    char* at = SkipBackWs(blockEnd - 1, blockOpen);
+    if (!InsertAt(buf, cap, len, at - buf, text)) return NULL;
+    return FindChildObject(blockOpen, "daySceneMapStatusData");
+}
+
+// Unlocks every map of ids inside the block at blockOpen. Returns the number of
+// entries the caller has to write, or -1 when the structure cannot be edited.
+static int UnlockMapGroup(char* buf, long cap, long* len, char* blockOpen, const char* const* ids, int count)
+{
+    if (!EnsureMapStatusObject(buf, cap, len, blockOpen, ids, count)) return -1;
+    for (int i = 0; i < count; i++) {
+        char* mapObj = FindChildObject(blockOpen, "daySceneMapStatusData");
+        if (!mapObj) return -1;
+        if (!SetChildBool(buf, cap, len, mapObj, ids[i], true)) return -1;
+    }
+    return count;
+}
+
+int SaveEditor_UnlockAllMaps(const char* path)
+{
+    long len = 0;
+    char* buf = LoadFileForEdit(path, &len);
+    if (!buf) return (int)len;
+    long cap = len + FILE_SLACK;
+    int ret = -7;
+    int unlocked = 0;
+    bool ok = true;
+
+    if (!FindKeyColon(buf, "dayScenePartial")) {
+        free(buf);
+        return -1;
+    }
+
+    // Activation entries come first: inserting into allActivatedDLC shifts the
+    // rest of the buffer, so every later pointer is resolved afterwards.
+    for (int g = 0; g < MAP_GROUP_COUNT && ok; g++) {
+        if (!EnsureDlcActivated(buf, cap, &len, MAP_GROUPS[g].dlcKey)) ok = false;
+    }
+    if (!ok) {
+        free(buf);
+        return -5;
+    }
+
+    char* coreKey = FindKeyColon(buf, "dayScenePartial");
+    char* coreBlock = coreKey ? strchr(coreKey, '{') : NULL;
+    if (!coreBlock) {
+        free(buf);
+        return -7;
+    }
+    int coreAlready = CountChildBoolTrue(FindChildObject(coreBlock, "daySceneMapStatusData"), CORE_MAP_IDS, CORE_MAP_COUNT);
+    if (UnlockMapGroup(buf, cap, &len, coreBlock, CORE_MAP_IDS, CORE_MAP_COUNT) < 0) {
+        free(buf);
+        return -7;
+    }
+    unlocked += CORE_MAP_COUNT - coreAlready;
+
+    if (!FindKeyColon(buf, "dayScenePartialDLC")) {
+        char* rootOpen = strchr(buf, '{');
+        char* rootEnd = rootOpen ? FindObjectEnd(rootOpen) : NULL;
+        if (!rootOpen || !rootEnd) {
+            free(buf);
+            return -7;
+        }
+        char text[64];
+        _snprintf(text, sizeof(text), "%s\"dayScenePartialDLC\": {}", IsEmptyObject(rootOpen) ? "" : ",\n  ");
+        if (!InsertAt(buf, cap, &len, SkipBackWs(rootEnd - 1, rootOpen) - buf, text)) {
+            free(buf);
+            return -7;
+        }
+    }
+
+    for (int g = 0; g < MAP_GROUP_COUNT; g++) {
+        const MapGroupDef& grp = MAP_GROUPS[g];
+        char* rootKey = FindKeyColon(buf, "dayScenePartialDLC");
+        char* rootOpen = rootKey ? strchr(rootKey, '{') : NULL;
+        char* block = rootOpen ? EnsureChildBlock(buf, cap, &len, rootOpen, grp.dlcKey) : NULL;
+        if (!block) {
+            free(buf);
+            return -7;
+        }
+        int already = CountChildBoolTrue(FindChildObject(block, "daySceneMapStatusData"), grp.ids, grp.count);
+        if (UnlockMapGroup(buf, cap, &len, block, grp.ids, grp.count) < 0) {
+            free(buf);
+            return -7;
+        }
+        unlocked += grp.count - already;
+    }
+
+    ret = (SaveEditedFile(path, buf, len) == 0) ? unlocked : -4;
+    free(buf);
+    return ret;
+}
+
+int SaveEditor_GetMapCount(void)
+{
+    return MAP_TOTAL_COUNT;
 }
 
 int SaveEditor_GetBossCount(void)

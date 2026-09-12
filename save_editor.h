@@ -26,6 +26,8 @@ int SaveEditor_BossHasClear(int bossId);
 int SaveEditor_BossHasInvite(int bossId);
 int SaveEditor_QueueBossEvents(const char* path, int bossId);
 int SaveEditor_SetBossCleared(const char* path, int bossId);
+int SaveEditor_UnlockAllMaps(const char* path);
+int SaveEditor_GetMapCount(void);
 
 #ifdef __cplusplus
 }

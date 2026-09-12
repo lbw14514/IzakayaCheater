@@ -51,6 +51,25 @@ DLC2 和 DLC3 的 Boss 战需要 12 角色满好感，太累了，所以写了�
 
 ---
 
+## 解锁全部地图
+
+按钮在「金钱」下面，不依赖 Boss 选择。把 `dayScenePartial.daySceneMapStatusData` 与 `dayScenePartialDLC.DLCn.daySceneMapStatusData` 里的 17 张地图全部置 `true`，并补写 `allActivatedDLC` 的 DLC1~5。适用于只玩过本体的存档（地图上根本没有 DLC 地区，没法去打 DLC 的再战）。
+
+| 区块 | 地图 ID |
+|---|---|
+| 本体 `dayScenePartial` | BeastForest / HakureiShrine / HumanVillage / BambooForest / ScarletMansion / Hakugyokurou |
+| DLC1 | DLC1_MagicForest / DLC1_YoukaiMountain |
+| DLC2 | DLC2_FormerHell / DLC2_EarthSpiritsPalace |
+| DLC3 | DLC3_MyourenTemple / DLC3_DivineSpiritMausoleum |
+| DLC4 | DLC4_GardenOfTheSun / DLC4_ShiningNeedleCastle / DLC4_ScarletMansionBasement |
+| DLC5 | DLC5_Makai / DLC5_LunarCapital |
+
+返回值：`>=0` = 新解锁的地图数，`-1` 存档无此结构，`-4` 写入失败，`-5` 无法激活 DLC，`-7` 结构不支持。重复点没事（第二次返回 0 且文件不变）。
+
+> 这只是「地图是否开放」，不改剧情进度。已离线验证字段写入正确，进游戏后能不能直接选这些地点仍需实测确认。
+
+---
+
 ## 核心数据
 
 ```text
