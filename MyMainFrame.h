@@ -4,7 +4,6 @@
 #include "utils.h"
 #include "MyAboutDialog.h"
 #include "save_editor.h"
-#include <memory>
 
 class MyMainFrame : public MainFrame
 {
@@ -32,6 +31,7 @@ class MyMainFrame : public MainFrame
     void OnTriggerFestival( wxCommandEvent& event );
     void OnSaveMoney( wxCommandEvent& event );
     void RefreshSaveList();
+    void SetSaveResult(int ret);
     MyMainFrame();
 
     void Detect();

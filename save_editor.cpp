@@ -6,13 +6,139 @@
 static const int INV_IDS[] = {2014, 2015, 2016, 2017, 2018, 2019};
 static const int INV_COUNT = 6;
 static const char* SAVE_SUBDIR = "BetaV9";
+// DLC2/DLC3 bond entries: id ranges and the exp value written per DLC.
+static const int DLC2_BOND_IDS[] = {2000, 2001, 2002, 2003, 2004, 2005};
+static const int DLC3_BOND_IDS[] = {3000, 3001, 3002, 3003, 3004, 3005};
+static const int BOND_ID_COUNT = 6;
+static const char* DLC2_BOND_EXP_VALUE = "9999";
+static const char* DLC3_BOND_EXP_VALUE = "400";
+static const char* BOND_LVL_VALUE = "5";
+static const char BOND_EXP_KEY[] = "\"CurrentBondExp\": ";
+static const char BOND_LVL_KEY[] = "\"CurrentBondLevel\": ";
+// Extra bytes past the file size when loading a save for in-place edits;
+// must cover every insertion performed on the buffer.
+static const long FILE_SLACK = 16384;
 
-static void InsertAt(char* buf, long* len, long pos, const char* text)
+// Returns the pointer just past the closing brace of the JSON object starting
+// at brace (or the NUL terminator when the object is unbalanced).
+static char* FindObjectEnd(char* brace)
 {
-    long text_len = strlen(text);
+    int depth = 1;
+    char* p = brace + 1;
+    while (*p && depth > 0) {
+        if (*p == '{') depth++;
+        else if (*p == '}') depth--;
+        p++;
+    }
+    return p;
+}
+
+// Same as FindObjectEnd for a JSON array starting at bracket.
+static char* FindArrayEnd(char* bracket)
+{
+    int depth = 1;
+    char* p = bracket + 1;
+    while (*p && depth > 0) {
+        if (*p == '[') depth++;
+        else if (*p == ']') depth--;
+        p++;
+    }
+    return p;
+}
+
+// Loads the whole file into a NUL-terminated buffer with FILE_SLACK bytes of
+// room for in-place edits. On failure returns NULL and sets *outLen to the
+// error code (-1 open, -2 alloc or short read).
+static char* LoadFileForEdit(const char* path, long* outLen)
+{
+    *outLen = -1;
+    FILE* f = fopen(path, "rb");
+    if (!f) return NULL;
+    fseek(f, 0, SEEK_END);
+    long len = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    char* buf = (char*)malloc(len + FILE_SLACK);
+    if (!buf) { fclose(f); *outLen = -2; return NULL; }
+    size_t bytesRead = fread(buf, 1, len, f);
+    fclose(f);
+    if ((long)bytesRead != len) { free(buf); *outLen = -2; return NULL; }
+    buf[len] = '\0';
+    *outLen = len;
+    return buf;
+}
+
+static int SaveEditedFile(const char* path, const char* buf, long len)
+{
+    FILE* f = fopen(path, "wb");
+    if (!f) return -4;
+    fwrite(buf, 1, len, f);
+    fclose(f);
+    return 0;
+}
+
+// Overwrites the (optionally negative) decimal number starting at v with
+// digits, shifting the rest of the buffer as needed. Returns the byte shift
+// applied to the text following the number.
+static long OverwriteNumber(char* v, const char* digits)
+{
+    char* ve = v;
+    if (*ve == '-') ve++;
+    while (*ve >= '0' && *ve <= '9') ve++;
+    long oldLen = ve - v;
+    long newLen = (long)strlen(digits);
+    if (newLen != oldLen) {
+        memmove(ve + (newLen - oldLen), ve, strlen(ve) + 1);
+    }
+    memcpy(v, digits, newLen);
+    return newLen - oldLen;
+}
+
+// Replaces CurrentBondExp/CurrentBondLevel of the bond entry spanning
+// [entry, *entryEnd). *entryEnd is kept valid across the shifts. Returns the
+// total byte shift applied to the text after the entry.
+static long SetBondEntryNumbers(char* entry, char** entryEnd, const char* expValue)
+{
+    long shift = 0;
+    char* exp = strstr(entry, BOND_EXP_KEY);
+    if (exp && exp < *entryEnd) {
+        shift += OverwriteNumber(exp + strlen(BOND_EXP_KEY), expValue);
+        *entryEnd += shift;
+    }
+    char* lvl = strstr(entry, BOND_LVL_KEY);
+    if (lvl && lvl < *entryEnd) {
+        shift += OverwriteNumber(lvl + strlen(BOND_LVL_KEY), BOND_LVL_VALUE);
+        *entryEnd += shift;
+    }
+    return shift;
+}
+
+// Sets the bond exp/level of every id in ids within the JSON object spanning
+// [brace, *end). *end is adjusted in place because replacements shift the
+// buffer contents.
+static void SetBondEntries(char* brace, char** end, const int* ids, int count, const char* expValue)
+{
+    for (int i = 0; i < count; i++) {
+        char id_str[32];
+        _snprintf(id_str, sizeof(id_str), "\"%d\": {", ids[i]);
+        char* entry = strstr(brace, id_str);
+        if (!entry || entry >= *end) continue;
+        char* ob = strchr(entry, '{');
+        if (!ob) continue;
+        char* entryEnd = FindObjectEnd(ob);
+        *end += SetBondEntryNumbers(entry, &entryEnd, expValue);
+    }
+}
+
+// Inserts text at pos, growing *len; refuses when it would exceed cap bytes.
+// Returns true on success.
+static bool InsertAt(char* buf, long cap, long* len, long pos, const char* text)
+{
+    long text_len = (long)strlen(text);
+    if (*len + text_len + 1 > cap) return false;
     memmove(buf + pos + text_len, buf + pos, *len - pos + 1);
     memcpy(buf + pos, text, text_len);
     *len += text_len;
+    return true;
 }
 
 int SaveEditor_GetPath(int slot, char* path, DWORD size)
@@ -26,16 +152,10 @@ int SaveEditor_GetPath(int slot, char* path, DWORD size)
 
 int SaveEditor_AddInvitations(const char* path)
 {
-    FILE* f = fopen(path, "rb");
-    if (!f) return -1;
-    fseek(f, 0, SEEK_END);
-    long len = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    char* buf = (char*)malloc(len + 4096);
-    if (!buf) { fclose(f); return -2; }
-    fread(buf, 1, len, f);
-    fclose(f);
-    buf[len] = '\0';
+    long len = 0;
+    char* buf = LoadFileForEdit(path, &len);
+    if (!buf) return (int)len;
+    long cap = len + FILE_SLACK;
 
     char* storage = strstr(buf, "\"storagePartial\"");
     if (!storage) { free(buf); return -3; }
@@ -43,32 +163,22 @@ int SaveEditor_AddInvitations(const char* path)
     if (!items_start) { free(buf); return -3; }
     char* brace = strchr(items_start, '{');
     if (!brace) { free(buf); return -3; }
-    int depth = 1;
-    char* items_end = brace + 1;
-    while (*items_end && depth > 0) {
-        if (*items_end == '{') depth++;
-        else if (*items_end == '}') depth--;
-        items_end++;
-    }
-    items_end--;
+    char* items_close = FindObjectEnd(brace) - 1;
 
-    long insert_pos = items_end - buf;
+    long insert_pos = items_close - buf;
     for (int i = 0; i < INV_COUNT; i++) {
+        // The comma decision must reflect the buffer as it is now; a stale
+        // pointer produced invalid JSON when the items object started empty.
+        int has_comma = (insert_pos > 0 && buf[insert_pos - 1] != '{');
         char entry[32];
-        int has_comma = (items_end > brace && *(items_end - 1) != '{');
         _snprintf(entry, sizeof(entry), "%s\n    \"%d\": 1", has_comma ? "," : "", INV_IDS[i]);
-        memmove(buf + insert_pos + strlen(entry), buf + insert_pos, len - insert_pos + 1);
-        memcpy(buf + insert_pos, entry, strlen(entry));
-        insert_pos += strlen(entry);
-        len += strlen(entry);
+        if (!InsertAt(buf, cap, &len, insert_pos, entry)) break;
+        insert_pos += (long)strlen(entry);
     }
 
-    f = fopen(path, "wb");
-    if (!f) { free(buf); return -4; }
-    fwrite(buf, 1, len, f);
-    fclose(f);
+    int ret = SaveEditedFile(path, buf, len);
     free(buf);
-    return 0;
+    return ret;
 }
 
 int SaveEditor_GetSaveFolder(char* folder, DWORD size)
@@ -114,18 +224,14 @@ int SaveEditor_AddInvitationsToSlot(int slot)
     return ret;
 }
 
-int SaveEditor_SetDLC2Bonds(const char* path)
+// Shares the DLC3 bond-writing logic with SaveEditor_TriggerFestival; when
+// fromAlbum is true the DLC3 object is looked up under "albumPartialDLC",
+// otherwise directly in the document root.
+static int SetDLC2BondsImpl(const char* path)
 {
-    FILE* f = fopen(path, "rb");
-    if (!f) return -1;
-    fseek(f, 0, SEEK_END);
-    long len = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    char* buf = (char*)malloc(len + 4096);
-    if (!buf) { fclose(f); return -2; }
-    fread(buf, 1, len, f);
-    fclose(f);
-    buf[len] = '\0';
+    long len = 0;
+    char* buf = LoadFileForEdit(path, &len);
+    if (!buf) return (int)len;
 
     char* dlc2 = strstr(buf, "\"DLC2\"");
     if (!dlc2) { free(buf); return 0; }
@@ -133,78 +239,25 @@ int SaveEditor_SetDLC2Bonds(const char* path)
     if (!sss) { free(buf); return -3; }
     char* brace = strchr(sss, '{');
     if (!brace) { free(buf); return -3; }
-    int d = 1;
-    char* end = brace + 1;
-    while (*end && d > 0) {
-        if (*end == '{') d++;
-        else if (*end == '}') d--;
-        end++;
-    }
+    char* end = FindObjectEnd(brace);
 
-    int ids[] = {2000,2001,2002,2003,2004,2005};
-    for (int i = 0; i < 6; i++) {
-        char id_str[32];
-        _snprintf(id_str, sizeof(id_str), "\"%d\": {", ids[i]);
-        char* entry = strstr(brace, id_str);
-        if (!entry || entry >= end) continue;
-        char* ob = strchr(entry, '{');
-        if (!ob) continue;
-        d = 1;
-        char* ee = ob + 1;
-        while (*ee && d > 0) {
-            if (*ee == '{') d++;
-            else if (*ee == '}') d--;
-            ee++;
-        }
-        char* exp = strstr(entry, "\"CurrentBondExp\": ");
-        if (exp && exp < ee) {
-            char* v = exp + 18;
-            char* ve = v;
-            if (*ve == '-') ve++;
-            while (*ve >= '0' && *ve <= '9') ve++;
-            long oldl = ve - v;
-            if (oldl != 4) {
-                memmove(ve + (4-oldl), ve, strlen(ve)+1);
-            }
-            memcpy(v, "9999", 4);
-            long shift = 4 - oldl;
-            ee += shift;
-            end += shift;
-        }
-        char* lvl = strstr(entry, "\"CurrentBondLevel\": ");
-        if (lvl && lvl < ee) {
-            char* v = lvl + 20;
-            char* ve = v;
-            while (*ve >= '0' && *ve <= '9') ve++;
-            long oldl = ve - v;
-            if (oldl != 1) {
-                memmove(ve + (1-oldl), ve, strlen(ve)+1);
-            }
-            memcpy(v, "5", 1);
-        }
-    }
+    SetBondEntries(brace, &end, DLC2_BOND_IDS, BOND_ID_COUNT, DLC2_BOND_EXP_VALUE);
 
-    f = fopen(path, "wb");
-    if (!f) { free(buf); return -4; }
-    long new_len = strlen(buf);
-    fwrite(buf, 1, new_len, f);
-    fclose(f);
+    int ret = SaveEditedFile(path, buf, (long)strlen(buf));
     free(buf);
-    return 0;
+    return ret;
 }
 
-int SaveEditor_SetDLC3Bonds(const char* path)
+int SaveEditor_SetDLC2Bonds(const char* path)
 {
-    FILE* f = fopen(path, "rb");
-    if (!f) return -1;
-    fseek(f, 0, SEEK_END);
-    long len = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    char* buf = (char*)malloc(len + 4096);
-    if (!buf) { fclose(f); return -2; }
-    fread(buf, 1, len, f);
-    fclose(f);
-    buf[len] = '\0';
+    return SetDLC2BondsImpl(path);
+}
+
+static int SetDLC3BondsImpl(const char* path)
+{
+    long len = 0;
+    char* buf = LoadFileForEdit(path, &len);
+    if (!buf) return (int)len;
 
     char* album = strstr(buf, "\"albumPartialDLC\"");
     if (!album) { free(buf); return 0; }
@@ -214,79 +267,26 @@ int SaveEditor_SetDLC3Bonds(const char* path)
     if (!sss) { free(buf); return -3; }
     char* brace = strchr(sss, '{');
     if (!brace) { free(buf); return -3; }
-    int d = 1;
-    char* end = brace + 1;
-    while (*end && d > 0) {
-        if (*end == '{') d++;
-        else if (*end == '}') d--;
-        end++;
-    }
+    char* end = FindObjectEnd(brace);
 
-    int ids[] = {3000,3001,3002,3003,3004,3005};
-    for (int i = 0; i < 6; i++) {
-        char id_str[32];
-        _snprintf(id_str, sizeof(id_str), "\"%d\": {", ids[i]);
-        char* entry = strstr(brace, id_str);
-        if (!entry || entry >= end) continue;
-        char* ob = strchr(entry, '{');
-        if (!ob) continue;
-        d = 1;
-        char* ee = ob + 1;
-        while (*ee && d > 0) {
-            if (*ee == '{') d++;
-            else if (*ee == '}') d--;
-            ee++;
-        }
-        char* exp = strstr(entry, "\"CurrentBondExp\": ");
-        if (exp && exp < ee) {
-            char* v = exp + 18;
-            char* ve = v;
-            if (*ve == '-') ve++;
-            while (*ve >= '0' && *ve <= '9') ve++;
-            long oldl = ve - v;
-            if (oldl != 3) {
-                memmove(ve + (3-oldl), ve, strlen(ve)+1);
-            }
-            memcpy(v, "400", 3);
-            long shift = 3 - oldl;
-            ee += shift;
-            end += shift;
-        }
-        char* lvl = strstr(entry, "\"CurrentBondLevel\": ");
-        if (lvl && lvl < ee) {
-            char* v = lvl + 20;
-            char* ve = v;
-            while (*ve >= '0' && *ve <= '9') ve++;
-            long oldl = ve - v;
-            if (oldl != 1) {
-                memmove(ve + (1-oldl), ve, strlen(ve)+1);
-            }
-            memcpy(v, "5", 1);
-        }
-    }
+    SetBondEntries(brace, &end, DLC3_BOND_IDS, BOND_ID_COUNT, DLC3_BOND_EXP_VALUE);
 
-    f = fopen(path, "wb");
-    if (!f) { free(buf); return -4; }
-    long new_len = strlen(buf);
-    fwrite(buf, 1, new_len, f);
-    fclose(f);
+    int ret = SaveEditedFile(path, buf, (long)strlen(buf));
     free(buf);
-    return 0;
+    return ret;
+}
+
+int SaveEditor_SetDLC3Bonds(const char* path)
+{
+    return SetDLC3BondsImpl(path);
 }
 
 int SaveEditor_TriggerFestival(const char* path)
 {
-    FILE* f = fopen(path, "rb");
-    if (!f) return -1;
-    fseek(f, 0, SEEK_END);
-    long len = ftell(f);
-    fseek(f, 0, SEEK_SET);
-
-    char* buf = (char*)malloc(len + 16384);
-    if (!buf) { fclose(f); return -2; }
-    fread(buf, 1, len, f);
-    fclose(f);
-    buf[len] = '\0';
+    long len = 0;
+    char* buf = LoadFileForEdit(path, &len);
+    if (!buf) return (int)len;
+    long cap = len + FILE_SLACK;
 
     // 1. Set DLC3 bonds
     char* album = strstr(buf, "\"albumPartialDLC\"");
@@ -297,55 +297,8 @@ int SaveEditor_TriggerFestival(const char* path)
             if (sss) {
                 char* brace = strchr(sss, '{');
                 if (brace) {
-                    int d = 1;
-                    char* end = brace + 1;
-                    while (*end && d > 0) {
-                        if (*end == '{') d++;
-                        else if (*end == '}') d--;
-                        end++;
-                    }
-                    int ids[] = {3000,3001,3002,3003,3004,3005};
-                    for (int i = 0; i < 6; i++) {
-                        char id_str[32];
-                        _snprintf(id_str, sizeof(id_str), "\"%d\": {", ids[i]);
-                        char* entry = strstr(brace, id_str);
-                        if (!entry || entry >= end) continue;
-                        char* ob = strchr(entry, '{');
-                        if (!ob) continue;
-                        d = 1;
-                        char* ee = ob + 1;
-                        while (*ee && d > 0) {
-                            if (*ee == '{') d++;
-                            else if (*ee == '}') d--;
-                            ee++;
-                        }
-                        char* exp = strstr(entry, "\"CurrentBondExp\": ");
-                        if (exp && exp < ee) {
-                            char* v = exp + 18;
-                            char* ve = v;
-                            if (*ve == '-') ve++;
-                            while (*ve >= '0' && *ve <= '9') ve++;
-                            long oldl = ve - v;
-                            if (oldl != 3) {
-                                memmove(ve + (3-oldl), ve, strlen(ve)+1);
-                            }
-                            memcpy(v, "400", 3);
-                            long shift = 3 - oldl;
-                            ee += shift;
-                            end += shift;
-                        }
-                        char* lvl = strstr(entry, "\"CurrentBondLevel\": ");
-                        if (lvl && lvl < ee) {
-                            char* v = lvl + 20;
-                            char* ve = v;
-                            while (*ve >= '0' && *ve <= '9') ve++;
-                            long oldl = ve - v;
-                            if (oldl != 1) {
-                                memmove(ve + (1-oldl), ve, strlen(ve)+1);
-                            }
-                            memcpy(v, "5", 1);
-                        }
-                    }
+                    char* end = FindObjectEnd(brace);
+                    SetBondEntries(brace, &end, DLC3_BOND_IDS, BOND_ID_COUNT, DLC3_BOND_EXP_VALUE);
                 }
             }
         }
@@ -356,13 +309,7 @@ int SaveEditor_TriggerFestival(const char* path)
     if (ts) {
         char* brace = strchr(ts, '{');
         if (brace) {
-            int d = 1;
-            char* end = brace + 1;
-            while (*end && d > 0) {
-                if (*end == '{') d++;
-                else if (*end == '}') d--;
-                end++;
-            }
+            char* end = FindObjectEnd(brace);
             const char* new_ts =
                 "\"trackedSwitch\": {\n"
                 "      \"Aya_FamousIzakaya\": false,\n"
@@ -406,11 +353,12 @@ int SaveEditor_TriggerFestival(const char* path)
                 "      \"THYG_Has_Interact\": true\n"
                 "    }";
             long old_len = end - ts;
-            long new_len = strlen(new_ts);
+            long new_len = (long)strlen(new_ts);
             long shift = new_len - old_len;
+            if (len + shift + 1 > cap) { free(buf); return -2; }
             memmove(end + shift, end, strlen(end) + 1);
             memcpy(ts, new_ts, new_len);
-            len = strlen(buf);
+            len += shift;
         }
     }
 
@@ -419,13 +367,7 @@ int SaveEditor_TriggerFestival(const char* path)
     if (sched) {
         char* sched_brace = strchr(sched, '{');
         if (sched_brace) {
-            int d = 1;
-            char* sched_end = sched_brace + 1;
-            while (*sched_end && d > 0) {
-                if (*sched_end == '{') d++;
-                else if (*sched_end == '}') d--;
-                sched_end++;
-            }
+            char* sched_end = FindObjectEnd(sched_brace);
             char* dlc3 = strstr(sched_brace, "\"DLC3\"");
             if (!dlc3 || dlc3 >= sched_end) {
                 long pos = (sched_end - 1) - buf;
@@ -433,25 +375,17 @@ int SaveEditor_TriggerFestival(const char* path)
                 char section[8192];
                 _snprintf(section, sizeof(section),
                     "%s\n  \"DLC3\": {\n    \"dlcSaveDate\": 0,\n    \"scheduledEvents\": {},\n    \"scheduledNews\": {},\n    \"scheduledNewsReplaceContents\": {},\n    \"allTrackingMissions\": {\n      \"0\": [{\n        \"missionLabel\": \"DLC3_Main_Part4_KizunaProgress_Mission\",\n        \"conditionFinishStates\": [true, true, true, true, true, true],\n        \"conditionData\": [[],[],[],[],[],[]]\n      }]\n    },\n    \"finishedEvents\": [\n      \"DLC3_Main_Part4_Mission_Finished_Event\"\n    ],\n    \"finishedMissions\": [\n      \"DLC3_Main_Part4_KizunaProgress_Mission\",\n      \"DLC3_Main_Part8_HakureiFestivalChallenge_GuidedMission\"\n    ]\n  }", comma);
-                InsertAt(buf, &len, pos, section);
+                InsertAt(buf, cap, &len, pos, section);
             } else {
                 char* dlc3_brace = strchr(dlc3, '{');
                 if (dlc3_brace) {
-                    d = 1;
-                    char* dlc3_end = dlc3_brace + 1;
-                    while (*dlc3_end && d > 0) {
-                        if (*dlc3_end == '{') d++;
-                        else if (*dlc3_end == '}') d--;
-                        dlc3_end++;
-                    }
+                    char* dlc3_end = FindObjectEnd(dlc3_brace);
                     // Find or create allTrackingMissions
                     char* atm = strstr(dlc3, "\"allTrackingMissions\"");
                     if (!atm || atm >= dlc3_end) {
                         long pos = (dlc3_end - 1) - buf;
                         const char* sec = ",\n    \"allTrackingMissions\": {\n      \"0\": [{\n        \"missionLabel\": \"DLC3_Main_Part4_KizunaProgress_Mission\",\n        \"conditionFinishStates\": [true, true, true, true, true, true],\n        \"conditionData\": [[],[],[],[],[],[]]\n      }]\n    }";
-                        InsertAt(buf, &len, pos, sec);
-                        len = strlen(buf);
-                        dlc3_end = NULL;
+                        InsertAt(buf, cap, &len, pos, sec);
                     } else {
                         // Update conditionFinishStates
                         char* mission = strstr(atm, "\"DLC3_Main_Part4_KizunaProgress_Mission\"");
@@ -460,17 +394,16 @@ int SaveEditor_TriggerFestival(const char* path)
                             if (cfs) {
                                 char* arr = strchr(cfs, '[');
                                 if (arr) {
-                                    d = 1;
-                                    char* arr_end = arr + 1;
-                                    while (*arr_end && d > 0) {
-                                        if (*arr_end == '[') d++;
-                                        else if (*arr_end == ']') d--;
-                                        arr_end++;
-                                    }
+                                    char* arr_end = FindArrayEnd(arr);
                                     const char* na = "[true, true, true, true, true, true]";
-                                    memmove(arr + strlen(na), arr_end, strlen(arr_end)+1);
-                                    memcpy(arr, na, strlen(na));
-                                    len = strlen(buf);
+                                    long old_len = arr_end - arr;
+                                    long new_len = (long)strlen(na);
+                                    long shift = new_len - old_len;
+                                    if (len + shift + 1 <= cap) {
+                                        memmove(arr + new_len, arr_end, strlen(arr_end) + 1);
+                                        memcpy(arr, na, new_len);
+                                        len += shift;
+                                    }
                                 }
                             }
                         } else {
@@ -478,20 +411,15 @@ int SaveEditor_TriggerFestival(const char* path)
                             char* atm_brace = strchr(atm, '{');
                             char* atm_end = NULL;
                             if (atm_brace) {
-                                atm_end = atm_brace + 1;
-                                d = 1;
-                                while (*atm_end && d > 0) {
-                                    if (*atm_end == '{') d++;
-                                    else if (*atm_end == '}') d--;
-                                    atm_end++;
-                                }
+                                atm_end = FindObjectEnd(atm_brace);
                             }
-                            long pos = (atm_end - 1) - buf;
-                            const char* comma = (atm_brace && *(atm_brace + 1) == '}') ? "" : ",";
-                            char entry[512];
-                            _snprintf(entry, sizeof(entry), "%s\n      \"0\": [{\n        \"missionLabel\": \"DLC3_Main_Part4_KizunaProgress_Mission\",\n        \"conditionFinishStates\": [true, true, true, true, true, true],\n        \"conditionData\": [[],[],[],[],[],[]]\n      }]", comma);
-                            InsertAt(buf, &len, pos, entry);
-                            len = strlen(buf);
+                            if (atm_end) {
+                                long pos = (atm_end - 1) - buf;
+                                const char* comma = (*(atm_brace + 1) == '}') ? "" : ",";
+                                char entry[512];
+                                _snprintf(entry, sizeof(entry), "%s\n      \"0\": [{\n        \"missionLabel\": \"DLC3_Main_Part4_KizunaProgress_Mission\",\n        \"conditionFinishStates\": [true, true, true, true, true, true],\n        \"conditionData\": [[],[],[],[],[],[]]\n      }]", comma);
+                                InsertAt(buf, cap, &len, pos, entry);
+                            }
                         }
                     }
 
@@ -502,19 +430,12 @@ int SaveEditor_TriggerFestival(const char* path)
                         if (!event_check) {
                             char* fb = strchr(fe, '[');
                             if (fb) {
-                                d = 1;
-                                char* fe_end = fb + 1;
-                                while (*fe_end && d > 0) {
-                                    if (*fe_end == '[') d++;
-                                    else if (*fe_end == ']') d--;
-                                    fe_end++;
-                                }
+                                char* fe_end = FindArrayEnd(fb);
                                 long pos = (fe_end - 1) - buf;
                                 const char* comma = (fb && *(fb + 1) == ']') ? "" : ",";
                                 char entry[128];
                                 _snprintf(entry, sizeof(entry), "%s\n      \"DLC3_Main_Part4_Mission_Finished_Event\"", comma);
-                                InsertAt(buf, &len, pos, entry);
-                                len = strlen(buf);
+                                InsertAt(buf, cap, &len, pos, entry);
                             }
                         }
                     }
@@ -532,19 +453,12 @@ int SaveEditor_TriggerFestival(const char* path)
                             if (!check) {
                                 char* fb = strchr(fin, '[');
                                 if (fb) {
-                                    d = 1;
-                                    char* fm_end = fb + 1;
-                                    while (*fm_end && d > 0) {
-                                        if (*fm_end == '[') d++;
-                                        else if (*fm_end == ']') d--;
-                                        fm_end++;
-                                    }
+                                    char* fm_end = FindArrayEnd(fb);
                                     long pos = (fm_end - 1) - buf;
                                     const char* comma = (fb && *(fb + 1) == ']') ? "" : ",";
                                     char entry[128];
                                     _snprintf(entry, sizeof(entry), "%s\n      \"%s\"", comma, needed_missions[i]);
-                                    InsertAt(buf, &len, pos, entry);
-                                    len = strlen(buf);
+                                    InsertAt(buf, cap, &len, pos, entry);
                                 }
                             }
                         }
@@ -554,12 +468,9 @@ int SaveEditor_TriggerFestival(const char* path)
         }
     }
 
-    f = fopen(path, "wb");
-    if (!f) { free(buf); return -4; }
-    fwrite(buf, 1, len, f);
-    fclose(f);
+    int ret = SaveEditedFile(path, buf, len);
     free(buf);
-    return 0;
+    return ret;
 }
 
 int SaveEditor_TriggerFestivalSlot(int slot)
@@ -572,16 +483,9 @@ int SaveEditor_TriggerFestivalSlot(int slot)
 
 int SaveEditor_SetFund(const char* path, int value)
 {
-    FILE* f = fopen(path, "rb");
-    if (!f) return -1;
-    fseek(f, 0, SEEK_END);
-    long len = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    char* buf = (char*)malloc(len + 128);
-    if (!buf) { fclose(f); return -2; }
-    fread(buf, 1, len, f);
-    fclose(f);
-    buf[len] = '\0';
+    long len = 0;
+    char* buf = LoadFileForEdit(path, &len);
+    if (!buf) return (int)len;
 
     char* fund = strstr(buf, "\"fund\"");
     if (!fund) { free(buf); return -3; }
@@ -589,24 +493,12 @@ int SaveEditor_SetFund(const char* path, int value)
     if (!colon) { free(buf); return -3; }
     char* val = colon + 1;
     while (*val == ' ') val++;
-    char* val_end = val;
-    if (*val_end == '-') val_end++;
-    while (*val_end >= '0' && *val_end <= '9') val_end++;
 
     char new_val[32];
     _snprintf(new_val, sizeof(new_val), "%d", value);
-    long old_len = val_end - val;
-    long new_len = strlen(new_val);
-    if (new_len != old_len) {
-        memmove(val_end + (new_len - old_len), val_end, strlen(val_end) + 1);
-    }
-    memcpy(val, new_val, new_len);
-    len = strlen(buf);
+    OverwriteNumber(val, new_val);
 
-    f = fopen(path, "wb");
-    if (!f) { free(buf); return -4; }
-    fwrite(buf, 1, len, f);
-    fclose(f);
+    int ret = SaveEditedFile(path, buf, (long)strlen(buf));
     free(buf);
-    return 0;
+    return ret;
 }

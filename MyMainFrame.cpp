@@ -3,7 +3,9 @@
 #include <wx/msgdlg.h>
 #include "config.h"
 
-MyMainFrame::MyMainFrame() : MainFrame(NULL, -1)
+static const int MAX_SAVE_SLOTS = 16;
+
+MyMainFrame::MyMainFrame() : MainFrame(NULL, -1), modBase(0), hProc(NULL), myAboutDialog(NULL)
 {
     SetTitle(_T("东方夜雀食堂修改器"));
     this->supportText->SetLabel(_T("支持夜雀食堂") + wxString::FromUTF8(SUPPORTED_VERSION));
@@ -67,7 +69,9 @@ void MyMainFrame::OnChange( wxCommandEvent& event )
 
 void MyMainFrame::OnAbout( wxCommandEvent& event )
 {
-    this->myAboutDialog = new MyAboutDialog(this);
+    if (!this->myAboutDialog) {
+        this->myAboutDialog = new MyAboutDialog(this);
+    }
     this->myAboutDialog->ShowModal();
 }
 
@@ -88,15 +92,27 @@ void MyMainFrame::Detect()
             case IzakayaCode::CANNOT_ATTACH_TO_PROCESS :
                 msg = _T("无法附加到进程！");
                 break;
+            default:
+                break;
         }
         wxMessageBox(msg);
         this->DetectedText->SetLabel(_T("未找到进程！"));
         return;
     }
+    // Close the handle from a previous detection before replacing it.
+    if (this->GetHProc()) {
+        CloseHandle(this->GetHProc());
+        this->SetHProc(NULL);
+    }
     this->SetModBase(result.modBase);
     this->SetHProc(result.hProc);
     this->DetectedText->SetLabel(_T("已附加到进程"));
-    DWORD money = ReadMoney(result.modBase, hProc);
+    DWORD money = 0;
+    if (ReadMoney(result.modBase, hProc, &money) != IzakayaCode::SUCCESS)
+    {
+        this->DetectedText->SetLabel(_T("已附加，但读取金钱失败"));
+        return;
+    }
     this->moneyCtrl->SetValue((int)money);
 }
 
@@ -108,9 +124,9 @@ void MyMainFrame::OnRefreshSaves( wxCommandEvent& event )
 void MyMainFrame::RefreshSaveList()
 {
     saveSlotChoice->Clear();
-    int slots[16];
+    int slots[MAX_SAVE_SLOTS];
     int count = 0;
-    if (SaveEditor_ScanSaves(slots, &count, 16) == 0 && count > 0)
+    if (SaveEditor_ScanSaves(slots, &count, MAX_SAVE_SLOTS) == 0 && count > 0)
     {
         for (int i = 0; i < count; i++)
         {
@@ -135,21 +151,16 @@ void MyMainFrame::OnTextEnter(wxCommandEvent& event)
 void MyMainFrame::Change(){
     if(!GetModBase() || !GetHProc())
     {
-        wxMessageBox(_T("写入失败！"));
+        wxMessageBox(_T("请先检测进程！"));
         return;
     }
-    ChangeMoney(GetModBase(), GetHProc(), moneyCtrl->GetValue());
-    wxMessageBox(_T("已写入！"));
+    IzakayaCode code = ChangeMoney(GetModBase(), GetHProc(), moneyCtrl->GetValue());
+    wxMessageBox(code == IzakayaCode::SUCCESS ? _T("已写入！") : _T("写入失败！"));
 }
 
-void MyMainFrame::OnTriggerFestival( wxCommandEvent& event )
+// Maps a save_editor error code to the status label, shared by every handler.
+void MyMainFrame::SetSaveResult(int ret)
 {
-    int sel = saveSlotChoice->GetSelection();
-    if (sel == wxNOT_FOUND) { saveStatusText->SetLabel(_T("请先选择存档!")); return; }
-    int answer = wxMessageBox(_T("可能跳过部分剧情导致不完整，是否继续？"), _T("确认"), wxYES_NO | wxICON_QUESTION);
-    if (answer != wxYES) { saveStatusText->SetLabel(_T("已取消")); return; }
-    int slot = (int)(intptr_t)saveSlotChoice->GetClientData(sel);
-    int ret = SaveEditor_TriggerFestivalSlot(slot);
     switch(ret)
     {
         case 0:
@@ -157,6 +168,9 @@ void MyMainFrame::OnTriggerFestival( wxCommandEvent& event )
             break;
         case -1:
             saveStatusText->SetLabel(_T("存档文件未找到!"));
+            break;
+        case -2:
+            saveStatusText->SetLabel(_T("内存不足!"));
             break;
         case -3:
             saveStatusText->SetLabel(_T("无法解析存档!"));
@@ -167,6 +181,17 @@ void MyMainFrame::OnTriggerFestival( wxCommandEvent& event )
         default:
             saveStatusText->SetLabel(wxString::Format(_T("错误代码: %d"), ret));
     }
+}
+
+void MyMainFrame::OnTriggerFestival( wxCommandEvent& event )
+{
+    int sel = saveSlotChoice->GetSelection();
+    if (sel == wxNOT_FOUND) { saveStatusText->SetLabel(_T("请先选择存档!")); return; }
+    int answer = wxMessageBox(_T("可能跳过部分剧情导致不完整，是否继续？"), _T("确认"), wxYES_NO | wxICON_QUESTION);
+    if (answer != wxYES) { saveStatusText->SetLabel(_T("已取消")); return; }
+    int slot = (int)(intptr_t)saveSlotChoice->GetClientData(sel);
+    int ret = SaveEditor_TriggerFestivalSlot(slot);
+    SetSaveResult(ret);
 }
 
 void MyMainFrame::OnSaveMoney( wxCommandEvent& event )
@@ -182,14 +207,7 @@ void MyMainFrame::OnSaveMoney( wxCommandEvent& event )
     char path[MAX_PATH];
     if (SaveEditor_GetPath(slot, path, sizeof(path))) { saveStatusText->SetLabel(_T("路径错误!")); return; }
     int ret = SaveEditor_SetFund(path, (int)value);
-    switch(ret)
-    {
-        case 0: saveStatusText->SetLabel(_T("完成")); break;
-        case -1: saveStatusText->SetLabel(_T("存档文件未找到!")); break;
-        case -3: saveStatusText->SetLabel(_T("无法解析存档!")); break;
-        case -4: saveStatusText->SetLabel(_T("写入失败!")); break;
-        default: saveStatusText->SetLabel(wxString::Format(_T("错误代码: %d"), ret));
-    }
+    SetSaveResult(ret);
 }
 
 void MyMainFrame::OnAddInvitation( wxCommandEvent& event )
@@ -198,19 +216,5 @@ void MyMainFrame::OnAddInvitation( wxCommandEvent& event )
     if (sel == wxNOT_FOUND) { saveStatusText->SetLabel(_T("请先选择存档!")); return; }
     int slot = (int)(intptr_t)saveSlotChoice->GetClientData(sel);
     int ret = SaveEditor_AddInvitationsToSlot(slot);
-    if (ret == 0)
-    {
-
-        saveStatusText->SetLabel(_T("完成"));
-    }
-    else
-    {
-        switch(ret)
-        {
-            case -1: saveStatusText->SetLabel(_T("存档文件未找到!")); break;
-            case -3: saveStatusText->SetLabel(_T("无法解析存档!")); break;
-            case -4: saveStatusText->SetLabel(_T("写入失败!")); break;
-            default: saveStatusText->SetLabel(wxString::Format(_T("错误代码: %d"), ret));
-        }
-    }
+    SetSaveResult(ret);
 }

@@ -1,23 +1,28 @@
 #pragma once
-#include <winsock2.h>
 #include <windows.h>
 #include <vector>
 #include <string>
 
-static const uintptr_t modBaseOffset = 0x2E7E9C0;
+// Memory layout of the game (GameAssembly.dll); tied to SUPPORTED_VERSION in config.h.
+extern const uintptr_t MOD_BASE_OFFSET;
+extern const std::vector<unsigned int> MONEY_OFFSETS;
 
-static const std::vector<unsigned int> moneyOffsets = { 0xB8, 0x10 };
+// Game process and mono module names.
+extern const char PROC_NAME[];
+extern const char MODULE_NAME[];
 
 DWORD GetProcessID(const char* procName);
 uintptr_t GetModuleBaseAddress(DWORD procId, const char* modName);
-uintptr_t GetDMAAddress(HANDLE hProc, uintptr_t ptr, std::vector<unsigned int> offsets);
+uintptr_t GetDMAAddress(HANDLE hProc, uintptr_t ptr, const std::vector<unsigned int>& offsets);
 
 enum IzakayaCode
 {
     SUCCESS = 0,
     PROCESS_NOT_FOUND = -1,
     BASE_ADDRESS_NOT_FOUND = -2,
-    CANNOT_ATTACH_TO_PROCESS = -3
+    CANNOT_ATTACH_TO_PROCESS = -3,
+    MEMORY_READ_FAILED = -4,
+    MEMORY_WRITE_FAILED = -5
 };
 
 struct IzakayaResult
@@ -28,6 +33,5 @@ struct IzakayaResult
 };
 
 IzakayaResult GetIzakayaProcess();
-DWORD ReadMoney(uintptr_t modBase, HANDLE hProc);
-void ChangeMoney(uintptr_t modBase, HANDLE hProc, DWORD value);
-
+IzakayaCode ReadMoney(uintptr_t modBase, HANDLE hProc, DWORD* outValue);
+IzakayaCode ChangeMoney(uintptr_t modBase, HANDLE hProc, DWORD value);

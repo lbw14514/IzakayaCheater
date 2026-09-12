@@ -1,6 +1,10 @@
 #include "utils.h"
 #include <tlhelp32.h>
 
+const uintptr_t MOD_BASE_OFFSET = 0x2E7E9C0;
+const std::vector<unsigned int> MONEY_OFFSETS = { 0xB8, 0x10 };
+const char PROC_NAME[] = "Touhou Mystia Izakaya.exe";
+const char MODULE_NAME[] = "GameAssembly.dll";
 
 DWORD GetProcessID(const char* procName){
 	DWORD procId = 0;
@@ -22,6 +26,7 @@ DWORD GetProcessID(const char* procName){
 	CloseHandle(hSnap);
 	return procId;
 }
+
 uintptr_t GetModuleBaseAddress(DWORD procId, const char* modName) {
 	uintptr_t modBase = 0;
 
@@ -42,33 +47,33 @@ uintptr_t GetModuleBaseAddress(DWORD procId, const char* modName) {
 	CloseHandle(hSnap);
 	return modBase;
 }
-uintptr_t GetDMAAddress(HANDLE hProc, uintptr_t ptr, std::vector <unsigned int> offsets) {
-	uintptr_t dma = 0;
-	dma = ptr;
-	for (int i = 0; i < offsets.size(); i++) {
-		ReadProcessMemory(hProc, (BYTE*)dma, &dma, sizeof(dma), nullptr);
+
+uintptr_t GetDMAAddress(HANDLE hProc, uintptr_t ptr, const std::vector<unsigned int>& offsets) {
+	uintptr_t dma = ptr;
+	for (size_t i = 0; i < offsets.size(); i++) {
+		if (!ReadProcessMemory(hProc, (BYTE*)dma, &dma, sizeof(dma), nullptr)) {
+			return 0;
+		}
 		dma += offsets[i];
 	}
 	return dma;
 }
 
-
-
 IzakayaResult GetIzakayaProcess()
 {
     IzakayaResult result;
-    DWORD procId = GetProcessID("Touhou Mystia Izakaya.exe");
+    DWORD procId = GetProcessID(PROC_NAME);
     if (procId == 0) {
         result.code = IzakayaCode::PROCESS_NOT_FOUND;
         return result;
     }
-    uintptr_t modBase = GetModuleBaseAddress(procId, "GameAssembly.dll");
+    uintptr_t modBase = GetModuleBaseAddress(procId, MODULE_NAME);
     if (modBase == 0) {
         result.code = IzakayaCode::BASE_ADDRESS_NOT_FOUND;
         return result;
     }
     HANDLE hProc = OpenProcess(PROCESS_ALL_ACCESS, FALSE, procId);
-    if (hProc == INVALID_HANDLE_VALUE) {
+    if (hProc == NULL || hProc == INVALID_HANDLE_VALUE) {
         result.code = IzakayaCode::CANNOT_ATTACH_TO_PROCESS;
         return result;
     }
@@ -77,15 +82,26 @@ IzakayaResult GetIzakayaProcess()
     result.hProc = hProc;
     return result;
 }
-DWORD ReadMoney(uintptr_t modBase, HANDLE hProc)
+
+IzakayaCode ReadMoney(uintptr_t modBase, HANDLE hProc, DWORD* outValue)
 {
-    DWORD money = 0;
-    uintptr_t moneyPtr = GetDMAAddress(hProc, modBase + modBaseOffset, moneyOffsets);
-    ReadProcessMemory(hProc, (BYTE*)moneyPtr,  &money, sizeof(money), nullptr);
-	return money;
+    *outValue = 0;
+    uintptr_t moneyPtr = GetDMAAddress(hProc, modBase + MOD_BASE_OFFSET, MONEY_OFFSETS);
+    SIZE_T bytesRead = 0;
+    if (!ReadProcessMemory(hProc, (BYTE*)moneyPtr, outValue, sizeof(*outValue), &bytesRead)
+            || bytesRead != sizeof(*outValue)) {
+        return IzakayaCode::MEMORY_READ_FAILED;
+    }
+    return IzakayaCode::SUCCESS;
 }
-void ChangeMoney(uintptr_t modBase, HANDLE hProc, DWORD value)
+
+IzakayaCode ChangeMoney(uintptr_t modBase, HANDLE hProc, DWORD value)
 {
-    uintptr_t moneyPtr = GetDMAAddress(hProc, modBase + modBaseOffset, moneyOffsets);
-    WriteProcessMemory(hProc, (BYTE*)moneyPtr, &value, sizeof(value), nullptr);
+    uintptr_t moneyPtr = GetDMAAddress(hProc, modBase + MOD_BASE_OFFSET, MONEY_OFFSETS);
+    SIZE_T bytesWritten = 0;
+    if (!WriteProcessMemory(hProc, (BYTE*)moneyPtr, &value, sizeof(value), &bytesWritten)
+            || bytesWritten != sizeof(value)) {
+        return IzakayaCode::MEMORY_WRITE_FAILED;
+    }
+    return IzakayaCode::SUCCESS;
 }
