@@ -8,7 +8,7 @@ static BOOL CALLBACK HideSpinButton(HWND hwnd, LPARAM lParam)
 {
     TCHAR cls[64] = {0};
     if (GetClassName(hwnd, cls, 64) && lstrcmp(cls, _T("msctls_updown32")) == 0)
-        ShowWindow(hwnd, SW_HIDE);
+        DestroyWindow(hwnd);
     return TRUE;
 }
 
