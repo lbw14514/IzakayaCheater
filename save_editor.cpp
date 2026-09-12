@@ -370,7 +370,7 @@ static const BossUnlockDef BOSS_DEFS[] = {
      "方案A：写 scheduledEvents = DLC4_Main_Part10_RepeatChallenge_Begin_Event。读档后立即开打（可自选难度）。\n"
      "方案B：写 finishedEvents = DLC4_Main_FlandreCabin_Enter_Event。之后到芙兰的房间对话选「再战」。",
      "DLC4", BOSS4_QUEUE, 1, BOSS4_EVENTS, 1, BOSS4_MISSIONS, 1, BOSS4_SWITCHES, 1, false},
-    {"抓捕瑞灵", "A+B",
+    {"瑞灵", "A+B",
      "方案A：写 scheduledEvents = DLC5_RepeatChallenge_ArrestMizuchi_Enter_Event。读档后立即开打。\n"
      "方案B：写 finishedEvents = DLC5_Challenge_ArrestMizuchi_Successful_GoHome_Event，并打开月都/魔界门开关。之后到月都控制台选再战。",
      "DLC5", BOSS5_QUEUE, 1, BOSS5_EVENTS, 1, BOSS5_MISSIONS, 1, BOSS5_SWITCHES, 2, false}
