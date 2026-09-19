@@ -17,6 +17,36 @@
 
 ---
 
+## 界面与运行要求
+
+界面已经重做成网页（HTML/CSS/JS），内嵌在程序窗口里跑，不再用 wxWidgets 控件。
+
+- 系统要求：Windows 10/11，需要 **WebView2 运行库**（Win11 自带；Win10 装了新 Edge 也有）。如果启动后窗口一片空白，装一下 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)。
+- 打开后就是界面本身，不需浏览器；关掉窗口即退出。
+- 左上角「更换背景」可以选本地图片当背景，会存成 `web/assets/custom.jpg`；「恢复默认」删除它。
+- 所有功能仍然只读写**本机存档**，程序不联网（本地服务只监听 127.0.0.1）。
+
+---
+
+## 从源码构建
+
+需要：CMake 3.15+、支持 C++11 的编译器（MinGW-w64 或 MSVC）、wxWidgets 3.2（core + base）。
+
+```bash
+cmake -S . -B build -G "MinGW Makefiles" \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DwxWidgets_ROOT_DIR=<wxWidgets 目录> \
+  -DwxWidgets_LIB_DIR=<wxWidgets 目录>/lib/gcc_lib \
+  -DwxWidgets_CONFIGURATION=mswu
+cmake --build build -j
+```
+
+MSVC 就把 `-G` 换成对应生成器并删掉那两个 wxWidgets 路径参数（让 CMake 自己找）。
+
+构建后 `build/` 里会有 `IzakayaCheater.exe`，同时自动拷入 `web/` 目录和 `WebView2Loader.dll`——**分发时三者必须放一起**，缺了界面会打不开。WebView2 的头文件与加载器已随仓库放在 `third_party/webview2`（取自 Microsoft.Web.WebView2 1.0.4191.47）。
+
+---
+
 ## 为啥写这东西（对我个人来说）
 
 慢慢打的话 太累了 虽然对于我来说做修改器更累了（？

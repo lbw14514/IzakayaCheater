@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(IzakayaCheater VERSION 0.3.0 LANGUAGES CXX RC)
+project(IzakayaCheater VERSION 0.4.0 LANGUAGES CXX RC)
 
 configure_file(config.h.in config.h)
 
