@@ -134,13 +134,7 @@ body {
 }
 
 .brand-text { display: flex; flex-direction: column; line-height: 1.3; }
-.brand-text strong {
-  font-family: "STXingkai", "华文行楷", "STKaiti", "华文楷体", "KaiTi", "楷体", "SimSun", "宋体", serif;
-  font-size: 16.5px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  color: var(--ink);
-}
+.brand-text strong { font-size: 15.5px; font-weight: 650; letter-spacing: .4px; color: var(--ink); }
 .brand-text span { font-size: 11.5px; color: var(--ink-soft); }
 
 .top-actions { display: flex; gap: 9px; flex-wrap: wrap; }
@@ -155,11 +149,10 @@ body {
 
 .hero h1 {
   margin: 0;
-  font-family: "STXingkai", "华文行楷", "FZShuTi", "方正舒体", "STKaiti", "华文楷体", "KaiTi", "楷体", "SimSun", "宋体", serif;
-  font-size: 46px;
-  line-height: 1.12;
-  letter-spacing: 3px;
-  font-weight: 500;
+  font-size: 44px;
+  line-height: 1.08;
+  letter-spacing: -0.5px;
+  font-weight: 700;
   color: var(--ink-title);
 }
 
