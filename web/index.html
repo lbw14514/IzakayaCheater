@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>东方夜雀食堂修改器</title>
+<link rel="icon" type="image/png" href="assets/game-icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="bg-layer"></div>
+<div class="bg-mask"></div>
+
+<div class="app">
+  <div class="canvas">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo"><img src="assets/game-icon.png" alt=""></div>
+        <div class="brand-text">
+          <strong>东方夜雀食堂</strong>
+          <span id="ver">v-</span>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button class="btn" id="btnBg">更换背景</button>
+        <button class="btn" id="btnBgReset">恢复默认</button>
+        <button class="btn light" id="btnRefresh">刷新存档</button>
+      </div>
+    </header>
+
+    <section class="hero">
+      <h1>东方夜雀食堂<br><span class="grad">修改器</span></h1>
+      <p class="badge"><span class="tick">✓</span><span id="saveCount">正在读取存档…</span></p>
+    </section>
+
+    <div class="grid">
+      <section class="pane">
+        <div class="pane-head">
+          <h2>存档</h2>
+        </div>
+        <div class="save-list" id="saveList"></div>
+        <p class="folder" id="saveFolder"></p>
+      </section>
+
+      <div class="stack">
+        <section class="card solid">
+          <div class="card-head">
+            <h2>金钱</h2>
+            <span class="tag" id="slotTag">未选择存档</span>
+          </div>
+          <div class="row">
+            <input id="moneyInput" class="input" inputmode="numeric" placeholder="输入金额">
+            <button class="btn accent" id="btnMoney">写入存档</button>
+          </div>
+          <div class="chips">
+            <button class="chip" data-money="9999">9999</button>
+            <button class="chip" data-money="99999">99999</button>
+            <button class="chip" data-money="999999">999999</button>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head"><h2>批量修改</h2></div>
+          <div class="list">
+            <div class="list-row">
+              <span class="ico">图</span>
+              <span class="txt">解锁全部地图<em>本体 + DLC1~5，并补写 DLC 激活项</em></span>
+              <button class="btn" id="btnMaps">执行</button>
+            </div>
+            <div class="list-row">
+              <span class="ico">心</span>
+              <span class="txt">全部满好感<em>所有角色拉到等级 5（满级）</em></span>
+              <button class="btn" id="btnBonds">执行</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head"><h2>强开战斗</h2></div>
+          <select id="bossSelect" class="input"></select>
+          <p class="desc" id="bossDesc"></p>
+          <div class="row">
+            <button class="btn" id="btnQueue">方案A：排队事件</button>
+            <button class="btn accent" id="btnClear">方案B：标记通关</button>
+            <button class="btn accent" id="btnInvite">方案C：邀请函</button>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <div class="legal">
+        <p class="warn">操作前请备份存档，并关闭 Steam 云同步</p>
+        <p class="copyright">本工具为第三方非官方存档修改器，仅读写本机存档，不修改游戏本体文件。所涉名称、商标、产品均为其各自权利人的资产，仅供识别；游戏素材著作权归 <a href="https://store.steampowered.com/app/1584090/__Touhou_Mystias_Izakaya" target="_blank" rel="noreferrer">Steam 上的《东方夜雀食堂 - Touhou Mystia's Izakaya》</a> 所有。若权利人认为本项目侵犯其权益，请联系删除。</p>
+      </div>
+      <button class="btn" id="btnAbout">关于</button>
+    </footer>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<div class="modal-mask" id="modalMask">
+  <div class="modal">
+    <h3 id="modalTitle">确认</h3>
+    <p id="modalText"></p>
+    <div class="row end">
+      <button class="btn" id="modalCancel">取消</button>
+      <button class="btn accent" id="modalOk">确定</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="bgFile" accept="image/*" hidden>
+<script src="app.js"></script>
+</body>
+</html>
