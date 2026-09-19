@@ -1,6 +1,7 @@
 # Build
 build/
 release/
+dist/
 *.exe
 
 # IDE
