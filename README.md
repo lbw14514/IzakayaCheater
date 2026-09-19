@@ -177,6 +177,8 @@ DLC4       FlandreExtraDialogData.m_BeginEventLabel / m_RepeatChallengeEventId
 DLC5       LunarCapitalConsoleBehaviourComponent.m_ArrestMizuchiChallengeFinishedEvent
             / m_ArrestMizuchiRepeatChallengeStartEvent
 
+```
+
 ## 界面与运行要求
 
 界面已经重做成网页（HTML/CSS/JS），内嵌在程序窗口里跑，不再用 wxWidgets 控件。
