@@ -175,7 +175,17 @@ bool WebViewHost::Create(HWND parent, const wchar_t* url)
     CreateEnvFn create = (CreateEnvFn)GetProcAddress(g_loader, "CreateCoreWebView2EnvironmentWithOptions");
     if (!create) return false;
 
-    HRESULT hr = create(nullptr, nullptr, nullptr, new EnvCallback());
+    std::wstring dataDir;
+    wchar_t buf[MAX_PATH];
+    DWORD n = GetEnvironmentVariableW(L"LOCALAPPDATA", buf, MAX_PATH);
+    if (n > 0 && n < MAX_PATH)
+    {
+        dataDir = std::wstring(buf) + L"\\IzakayaCheater";
+        CreateDirectoryW(dataDir.c_str(), nullptr);
+        dataDir += L"\\WebView2";
+    }
+
+    HRESULT hr = create(nullptr, dataDir.empty() ? nullptr : dataDir.c_str(), nullptr, new EnvCallback());
     return SUCCEEDED(hr);
 }
 
