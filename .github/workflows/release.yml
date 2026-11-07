@@ -33,15 +33,21 @@ jobs:
       - name: Download wxWidgets
         run: |
           curl -fL -o wx.7z "https://github.com/wxWidgets/wxWidgets/releases/download/v3.2.11/wxMSW-3.2.11_gcc1420UCRT_x64_Dev.7z"
+          curl -fL -o wxh.7z "https://github.com/wxWidgets/wxWidgets/releases/download/v3.2.11/wxWidgets-3.2.11-headers.7z"
           7z x wx.7z -o/c/wx -y > /dev/null
+          7z x wxh.7z -o/c/wx -y > /dev/null
+          if [ ! -d /c/wx/include ]; then
+            SRC=$(find /c/wx -maxdepth 3 -type d -name include | head -n1)
+            if [ -n "$SRC" ]; then
+              cp -r "$SRC" /c/wx/include
+            fi
+          fi
           CORE=$(find /c/wx/lib -maxdepth 2 -name "libwxmsw32u_core.a" | head -n1)
           LIBDIR=$(dirname "$CORE")
-          VER=$(find /c/wx -name version.h -path "*/wx/version.h" | head -n1)
-          echo "found version.h at $VER"
-          INC=$(dirname "$(dirname "$VER")")
-          WXROOT=$(dirname "$INC")
+          WXROOT=/c/wx
+          echo "version.h: $(ls /c/wx/include/wx/version.h)"
           mkdir -p "$LIBDIR/mswu/wx"
-          cp "$VER" "$LIBDIR/mswu/wx/version.h"
+          cp /c/wx/include/wx/version.h "$LIBDIR/mswu/wx/version.h"
           echo "found WXROOT=$WXROOT"
           echo "found WXLIB=$LIBDIR"
           echo "WXROOT=$WXROOT" >> "$GITHUB_ENV"
