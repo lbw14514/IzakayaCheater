@@ -64,6 +64,7 @@ class CheatFrame : public wxFrame
 
     private:
     void OnSize(wxSizeEvent& event);
+    void OnDpiChanged(wxDPIChangedEvent& event);
     void OnClose(wxCloseEvent& event);
     void ApplyWindowIcon();
     wxPanel* m_panel;
@@ -78,6 +79,7 @@ CheatFrame::CheatFrame(const wxString& url)
     ApplyWindowIcon();
 
     Bind(wxEVT_SIZE, &CheatFrame::OnSize, this);
+    Bind(wxEVT_DPI_CHANGED, &CheatFrame::OnDpiChanged, this);
     Bind(wxEVT_CLOSE_WINDOW, &CheatFrame::OnClose, this);
 
     Centre();
@@ -106,6 +108,14 @@ void CheatFrame::AdjustToScreen()
 
 void CheatFrame::OnSize(wxSizeEvent& event)
 {
+    if (m_panel) m_panel->SetSize(GetClientSize());
+    if (!IsIconized()) WebViewHost::Resize();
+    event.Skip();
+}
+
+void CheatFrame::OnDpiChanged(wxDPIChangedEvent& event)
+{
+    if (m_panel) m_panel->SetSize(GetClientSize());
     WebViewHost::Resize();
     event.Skip();
 }

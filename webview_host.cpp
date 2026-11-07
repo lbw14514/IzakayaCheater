@@ -16,6 +16,9 @@ HWND g_hwnd = nullptr;
 std::wstring g_url;
 HMODULE g_loader = nullptr;
 
+RECT g_lastBounds = {0, 0, 0, 0};
+bool g_hasBounds = false;
+
 class EnvCallback : public ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler
 {
     public:
@@ -181,22 +184,11 @@ void WebViewHost::Resize()
     if (!g_controller) return;
     RECT rc;
     GetClientRect(g_hwnd, &rc);
-    g_controller->put_Bounds(rc);
-
-    HMODULE user32 = GetModuleHandleW(L"user32.dll");
-    if (!user32) return;
-    typedef UINT(WINAPI * GetDpiForWindowFn)(HWND);
-    GetDpiForWindowFn getDpi = (GetDpiForWindowFn)GetProcAddress(user32, "GetDpiForWindow");
-    if (!getDpi) return;
-    UINT dpi = getDpi(g_hwnd);
-    if (dpi == 0) return;
-
-    ICoreWebView2Controller3* controller3 = nullptr;
-    if (SUCCEEDED(g_controller->QueryInterface(IID_ICoreWebView2Controller3, (void**)&controller3)) && controller3)
+    if (!g_hasBounds || !EqualRect(&rc, &g_lastBounds))
     {
-        controller3->put_ShouldDetectMonitorScaleChanges(FALSE);
-        controller3->put_RasterizationScale(dpi / 96.0);
-        controller3->Release();
+        g_lastBounds = rc;
+        g_hasBounds = true;
+        g_controller->put_Bounds(rc);
     }
 }
 
@@ -207,6 +199,7 @@ void WebViewHost::Reload()
 
 void WebViewHost::Destroy()
 {
+    g_hasBounds = false;
     if (g_controller)
     {
         g_controller->Close();

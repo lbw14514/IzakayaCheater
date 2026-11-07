@@ -403,31 +403,31 @@ static const char* BOSS5_SWITCHES[] = {"DLC5_Map_Makai_Portal", "DLC5_Makai_Rest
 
 static const BossUnlockDef BOSS_DEFS[] = {
     {"与幽幽子的决战", "A+B",
-     "方案A（已停用）：只往存档写 scheduledEvents 触发不了（已实测无效）。真正生效需要在游戏运行时调用它自己的 ScheduleEventExtern，等于要改内存/注入，暂未实现，留给有缘人。\n"
-     "方案B：写入 finishedMissions。只把最终战标记为已完成，等于跳过，不会开打。",
+     "方案A（已停用） 只往存档写 scheduledEvents 触发不了（已实测无效） 真正生效需要在游戏运行时调用它自己的 ScheduleEventExtern 等于要改内存注入 暂未实现\n"
+     "方案B 写入 finishedMissions 只把最终战标记为已完成 等于跳过 不会开打",
      NULL, BOSS0_QUEUE, 1, NULL, 0, BOSS0_MISSIONS, 1, NULL, 0, false, false},
     {"饕餮挑战赛", "A+B",
-     "方案A（已停用）：同下，只改存档触发不了，需运行时调用游戏自己的 ScheduleEventExtern。\n"
-     "方案B：写 finishedEvents = DLC1_Main_Toutetsu_004_Challange_Success。之后到妖怪山找荷取对话，选「再战」。",
+     "方案A（已停用） 同下 只改存档触发不了 需运行时调用游戏自己的 ScheduleEventExtern\n"
+     "方案B 写 finishedEvents = DLC1_Main_Toutetsu_004_Challange_Success 之后到妖怪山找荷取对话 选「再战」",
      "DLC1", BOSS1_QUEUE, 1, BOSS1_EVENTS, 1, BOSS1_MISSIONS, 1, BOSS1_SWITCHES, 1, false, false},
     {"怪诞料理挑战赛", "A+B+C",
-     "方案A（已停用）：同下，只改存档触发不了，需运行时调用游戏自己的 ScheduleEventExtern。\n"
-     "方案B：写 finishedMissions = DLC2_Main_FormerHell_WeirdCooking_Mission_Enter（阿燐的再战选项读任务完成数组）。之后找阿燐对话。\n"
-     "方案C：添加邀请函（物品 2014~2019）刷好感，走原版路线。对应下方「方案C」按钮。",
+     "方案A（已停用） 同下 只改存档触发不了 需运行时调用游戏自己的 ScheduleEventExtern\n"
+     "方案B 写 finishedMissions = DLC2_Main_FormerHell_WeirdCooking_Mission_Enter（阿燐的再战选项读任务完成数组） 之后找阿燐对话\n"
+     "方案C 添加邀请函（物品 2014~2019）刷好感 走原版路线 对应下方「方案C」按钮",
      "DLC2", BOSS2_QUEUE, 1, NULL, 0, BOSS2_MISSIONS, 1, NULL, 0, true, false},
     {"博丽大祭", "A+B",
-     "方案A（已停用）：同下，只改存档触发不了，需运行时调用游戏自己的 ScheduleEventExtern。\n"
-     "方案B：照搬旧「触发博丽大祭」的全套写入（DLC3 羁绊、39 项开关、祭典任务与事件），"
-     "让神社的时焉侑登场；之后到博丽神社找时焉侑选「再战」（她的再战选项恒可用，点下去就是运行时排事件）。",
+     "方案A（已停用） 同下 只改存档触发不了 需运行时调用游戏自己的 ScheduleEventExtern\n"
+     "方案B 照搬旧「触发博丽大祭」的全套写入（DLC3 羁绊 39 项开关 祭典任务与事件）"
+     "让神社的时焉侑登场 之后到博丽神社找时焉侑选「再战」（她的再战选项恒可用 点下去就是运行时排事件）",
      "DLC3", BOSS3_QUEUE, 1, BOSS3_EVENTS, 2, BOSS3_MISSIONS, 1, NULL, 0, false, true},
     {"芙兰朵露挑战赛", "A+B",
-     "方案A（已停用）：同下，只改存档触发不了，需运行时调用游戏自己的 ScheduleEventExtern。\n"
-     "方案B：写 finishedEvents = DLC4_Main_FlandreCabin_Enter_Event（芙兰家登场事件）+ 挑战完成事件，"
-     "并打开 FirstTimeToSDMBasement。之后先去「红魔馆地下室」再进「芙兰的家」，与芙兰对话选「再战」。",
+     "方案A（已停用） 同下 只改存档触发不了 需运行时调用游戏自己的 ScheduleEventExtern\n"
+     "方案B 写 finishedEvents = DLC4_Main_FlandreCabin_Enter_Event（芙兰家登场事件）+ 挑战完成事件 "
+     "并打开 FirstTimeToSDMBasement 之后先去「红魔馆地下室」再进「芙兰的家」 与芙兰对话选「再战」",
      "DLC4", BOSS4_QUEUE, 1, BOSS4_EVENTS, 3, BOSS4_MISSIONS, 1, BOSS4_SWITCHES, 1, false, false},
     {"瑞灵", "A+B",
-     "方案A（已停用）：同下，只改存档触发不了，需运行时调用游戏自己的 ScheduleEventExtern。\n"
-     "方案B：写 finishedEvents = DLC5_Challenge_ArrestMizuchi_Successful_GoHome_Event，并打开月都/魔界门开关。之后到月都控制台选再战。",
+     "方案A（已停用） 同下 只改存档触发不了 需运行时调用游戏自己的 ScheduleEventExtern\n"
+     "方案B 写 finishedEvents = DLC5_Challenge_ArrestMizuchi_Successful_GoHome_Event 并打开月都魔界门开关 之后到月都控制台选再战",
      "DLC5", BOSS5_QUEUE, 1, BOSS5_EVENTS, 1, BOSS5_MISSIONS, 1, BOSS5_SWITCHES, 2, false, false}
 };
 

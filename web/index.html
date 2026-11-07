@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="bg-layer"></div>
+<img class="bg-img" id="bgImg" src="assets/default.jpg" alt="">
 <div class="bg-mask"></div>
 
 <div class="app">
@@ -29,8 +29,8 @@
     </header>
 
     <section class="hero">
-      <h1>东方夜雀食堂<br><span class="grad">修改器</span></h1>
-      <p class="badge"><span class="tick">✓</span><span id="saveCount">正在读取存档…</span></p>
+      <h1>东方夜雀食堂<br>修改器</h1>
+      <p class="badge"><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span><span id="saveCount">正在读取存档</span></p>
     </section>
 
     <div class="grid">
@@ -63,12 +63,12 @@
           <div class="card-head"><h2>批量修改</h2></div>
           <div class="list">
             <div class="list-row">
-              <span class="ico">图</span>
+              <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15"/><path d="M15 6v15"/></svg></span>
               <span class="txt">解锁全部地图<em>本体 + DLC1~5，并补写 DLC 激活项</em></span>
               <button class="btn" id="btnMaps">执行</button>
             </div>
             <div class="list-row">
-              <span class="ico">心</span>
+              <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"/></svg></span>
               <span class="txt">全部满好感<em>所有角色拉到等级 5（满级）</em></span>
               <button class="btn" id="btnBonds">执行</button>
             </div>
@@ -80,9 +80,9 @@
           <select id="bossSelect" class="input"></select>
           <p class="desc" id="bossDesc"></p>
           <div class="row">
-            <button class="btn" id="btnQueue">方案A：排队事件</button>
-            <button class="btn accent" id="btnClear">方案B：标记通关</button>
-            <button class="btn accent" id="btnInvite">方案C：邀请函</button>
+            <button class="btn" id="btnQueue">排队事件</button>
+            <button class="btn accent" id="btnClear">标记通关</button>
+            <button class="btn accent" id="btnInvite">邀请函</button>
           </div>
         </section>
       </div>
@@ -90,7 +90,8 @@
 
     <footer class="footer">
       <div class="legal">
-        <p class="warn">操作前请备份存档，并关闭 Steam 云同步</p>
+        <p class="warn">操作前请备份存档 并关闭 Steam 云同步</p>
+        <p class="credit">开发者 usfese、雾雨卢本伟</p>
         <p class="copyright">本工具为第三方非官方存档修改器，仅读写本机存档，不修改游戏本体文件。所涉名称、商标、产品均为其各自权利人的资产，仅供识别；游戏素材著作权归 <a href="https://store.steampowered.com/app/1584090/__Touhou_Mystias_Izakaya" target="_blank" rel="noreferrer">Steam 上的《东方夜雀食堂 - Touhou Mystia's Izakaya》</a> 所有。若权利人认为本项目侵犯其权益，请联系删除。</p>
       </div>
       <button class="btn" id="btnAbout">关于</button>
@@ -103,7 +104,7 @@
 <div class="modal-mask" id="modalMask">
   <div class="modal">
     <h3 id="modalTitle">确认</h3>
-    <p id="modalText"></p>
+    <div class="modal-body" id="modalText"></div>
     <div class="row end">
       <button class="btn" id="modalCancel">取消</button>
       <button class="btn accent" id="modalOk">确定</button>

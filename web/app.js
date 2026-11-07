@@ -30,6 +30,7 @@ let modalResolve = null;
 function confirmBox(title, text) {
   $('modalTitle').textContent = title;
   $('modalText').textContent = text;
+  $('modalCancel').style.display = '';
   $('modalMask').classList.add('show');
   return new Promise((resolve) => { modalResolve = resolve; });
 }
@@ -42,7 +43,7 @@ function closeModal(ok) {
 }
 
 function applyBg(url) {
-  document.documentElement.style.setProperty('--bg', 'url("' + url + '")');
+  $('bgImg').src = url;
 }
 
 async function loadMeta() {
@@ -151,13 +152,13 @@ async function run(button, path, body, title, text) {
   }
   const old = button.textContent;
   button.disabled = true;
-  button.textContent = '处理中…';
+  button.textContent = '处理中';
   try {
     const res = await api(path, Object.assign({ slot: state.slot }, body));
     toast(res.msg, res.ok ? 'ok' : 'err');
     await loadSaves(true);
   } catch (e) {
-    toast('调用失败：' + e.message, 'err');
+    toast('调用失败 ' + e.message, 'err');
   } finally {
     button.textContent = old;
     refreshBoss();
@@ -179,7 +180,7 @@ $('btnMoney').addEventListener('click', () => {
     toast('请输入有效金额', 'err');
     return;
   }
-  run($('btnMoney'), '/api/fund', { value: v }, '写入金钱', '会把该存档的金钱改为 ' + v + '，是否继续？');
+  run($('btnMoney'), '/api/fund', { value: v }, '写入金钱', '会把该存档的金钱改为 ' + v + ' 是否继续');
 });
 
 document.querySelectorAll('.chip').forEach((chip) => {
@@ -187,23 +188,23 @@ document.querySelectorAll('.chip').forEach((chip) => {
 });
 
 $('btnMaps').addEventListener('click', () => {
-  run($('btnMaps'), '/api/maps', {}, '解锁全部地图', '会为该存档解锁全部地图（本体 + DLC1~5），并补写 DLC 激活项，是否继续？');
+  run($('btnMaps'), '/api/maps', {}, '解锁全部地图', '会为该存档解锁全部地图（本体 + DLC1~5） 并补写 DLC 激活项 是否继续');
 });
 
 $('btnBonds').addEventListener('click', () => {
-  run($('btnBonds'), '/api/bonds', {}, '全部满好感', '会把这个存档里所有角色的好感改满（等级 5），是否继续？');
+  run($('btnBonds'), '/api/bonds', {}, '全部满好感', '会把这个存档里所有角色的好感改满（等级 5） 是否继续');
 });
 
 $('btnQueue').addEventListener('click', () => {
-  run($('btnQueue'), '/api/boss/queue', { boss: state.boss }, '方案A', '方案A 只往存档写 scheduledEvents，实测触发不了，是否继续？');
+  run($('btnQueue'), '/api/boss/queue', { boss: state.boss }, '方案A', '方案A 只往存档写 scheduledEvents 实测触发不了 是否继续');
 });
 
 $('btnClear').addEventListener('click', () => {
-  run($('btnClear'), '/api/boss/clear', { boss: state.boss }, '方案B：标记通关', '方案B 会把该 Boss 标记为已通关以解锁再战，是否继续？');
+  run($('btnClear'), '/api/boss/clear', { boss: state.boss }, '方案B 标记通关', '方案B 会把该 Boss 标记为已通关以解锁再战 是否继续');
 });
 
 $('btnInvite').addEventListener('click', () => {
-  run($('btnInvite'), '/api/boss/invite', { boss: state.boss }, '方案C：添加邀请函', '方案C 会给该存档添加邀请函（物品 2014~2019），是否继续？');
+  run($('btnInvite'), '/api/boss/invite', { boss: state.boss }, '方案C 添加邀请函', '方案C 会给该存档添加邀请函（物品 2014~2019） 是否继续');
 });
 
 $('bossSelect').addEventListener('change', (e) => {
@@ -218,7 +219,7 @@ $('bgFile').addEventListener('change', (e) => {
   e.target.value = '';
   if (!file) return;
   if (file.size > 12 * 1024 * 1024) {
-    toast('图片过大，请选择 12MB 以内的图片', 'err');
+    toast('图片过大 请选择 12MB 以内的图片', 'err');
     return;
   }
   const reader = new FileReader();
@@ -228,7 +229,7 @@ $('bgFile').addEventListener('change', (e) => {
       toast(res.msg, res.ok ? 'ok' : 'err');
       if (res.ok) applyBg('assets/custom.jpg?t=' + Date.now());
     } catch (err) {
-      toast('设置背景失败：' + err.message, 'err');
+      toast('设置背景失败 ' + err.message, 'err');
     }
   };
   reader.readAsDataURL(file);
@@ -240,16 +241,36 @@ $('btnBgReset').addEventListener('click', async () => {
     toast(res.msg, res.ok ? 'ok' : 'err');
     if (res.ok) applyBg('assets/default.jpg');
   } catch (e) {
-    toast('重置失败：' + e.message, 'err');
+    toast('重置失败 ' + e.message, 'err');
   }
 });
+
+function showAbout(m) {
+  $('modalTitle').textContent = '关于';
+  const box = $('modalText');
+  box.textContent = '';
+  const rows = [
+    '东方夜雀食堂修改器 v' + m.version,
+    '存档目录 ' + m.folder,
+    '操作前请备份存档 并关闭 Steam 云同步'
+  ];
+  rows.forEach((text, i) => {
+    if (i) box.appendChild(document.createElement('hr'));
+    const p = document.createElement('p');
+    p.textContent = text;
+    box.appendChild(p);
+  });
+  $('modalCancel').style.display = 'none';
+  $('modalMask').classList.add('show');
+  return new Promise((resolve) => { modalResolve = resolve; });
+}
 
 $('btnAbout').addEventListener('click', async () => {
   try {
     const m = await api('/api/meta');
-    await confirmBox('关于', '东方夜雀食堂修改器 v' + m.version + '\n存档目录：' + m.folder + '\n\n操作前请备份存档，并关闭 Steam 云同步。');
+    await showAbout(m);
   } catch (e) {
-    toast('读取信息失败：' + e.message, 'err');
+    toast('读取信息失败 ' + e.message, 'err');
   }
 });
 
@@ -269,7 +290,7 @@ if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
     await loadBosses();
     await loadSaves(false);
   } catch (e) {
-    toast('无法连接本地服务：' + e.message, 'err');
+    toast('无法连接本地服务 ' + e.message, 'err');
   }
   window.scrollTo(0, 0);
 })();
