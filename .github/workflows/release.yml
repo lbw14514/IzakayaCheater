@@ -42,7 +42,10 @@ jobs:
               cp -r "$SRC" /c/wx/include
             fi
           fi
-          CORE=$(find /c/wx/lib -maxdepth 2 -name "libwxmsw32u_core.a" | head -n1)
+          CORE=$(find /c/wx/lib -maxdepth 2 -name "libwxmsw32u_core.a" | grep "_lib/" | head -n1)
+          if [ -z "$CORE" ]; then
+            CORE=$(find /c/wx/lib -maxdepth 2 -name "libwxmsw32u_core.a" | head -n1)
+          fi
           LIBDIR=$(dirname "$CORE")
           WXROOT=/c/wx
           echo "version.h: $(ls /c/wx/include/wx/version.h)"
@@ -79,6 +82,7 @@ jobs:
           cp /ucrt64/bin/libstdc++-6.dll stage/
           cp /ucrt64/bin/libgcc_s_seh-1.dll stage/
           cp /ucrt64/bin/libwinpthread-1.dll stage/
+          ldd build/IzakayaCheater.exe | awk '{print $3}' | grep -E "^(/c/wx|/ucrt64)/" | while read -r d; do cp -n "$d" stage/ 2>/dev/null || true; done
           cd stage
           7z a "../IzakayaCheater-${GITHUB_REF_NAME}-win64.zip" . > /dev/null
 
