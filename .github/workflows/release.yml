@@ -36,7 +36,12 @@ jobs:
           7z x wx.7z -o/c/wx -y > /dev/null
           CORE=$(find /c/wx/lib -maxdepth 2 -name "libwxmsw32u_core.a" | head -n1)
           LIBDIR=$(dirname "$CORE")
-          WXROOT=$(cd "$LIBDIR/../.." && pwd)
+          VER=$(find /c/wx -name version.h -path "*/wx/version.h" | head -n1)
+          echo "found version.h at $VER"
+          INC=$(dirname "$(dirname "$VER")")
+          WXROOT=$(dirname "$INC")
+          mkdir -p "$LIBDIR/mswu/wx"
+          cp "$VER" "$LIBDIR/mswu/wx/version.h"
           echo "found WXROOT=$WXROOT"
           echo "found WXLIB=$LIBDIR"
           echo "WXROOT=$WXROOT" >> "$GITHUB_ENV"
