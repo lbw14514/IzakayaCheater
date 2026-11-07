@@ -2,7 +2,7 @@
 
 bakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabaka
 
-东方夜雀食堂的存档修改器 能改金钱 开全地图 拉满好感 强开本体和 DLC1~DLC5 的 Boss 再战~（所以是全部啦）
+东方夜雀食堂的存档修改器 能改金钱 开全地图 拉满好感 强开本体和 DLC1~DLC5 的 Boss 再战（所以是全部啦）
 
 慢慢打太累了 虽然对我来说做修改器也不轻松（？
 
