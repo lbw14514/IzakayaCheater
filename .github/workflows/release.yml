@@ -67,8 +67,6 @@ jobs:
       - name: Build
         run: |
           cmake --build build -j
-          cp /ucrt64/bin/libstdc++-6.dll build/ 2>/dev/null || true
-          cp /ucrt64/bin/libgcc_s_seh-1.dll build/ 2>/dev/null || true
           cp /ucrt64/bin/libwinpthread-1.dll build/ 2>/dev/null || true
           cp "$WXLIB/wxbase32u_gcc1420UCRT_x64.dll" build/ 2>/dev/null || true
           cp "$WXLIB/wxmsw32u_core_gcc1420UCRT_x64.dll" build/ 2>/dev/null || true
@@ -80,13 +78,9 @@ jobs:
           cp build/IzakayaCheater.exe stage/
           cp build/WebView2Loader.dll stage/
           cp -r build/web stage/web
-          cp /ucrt64/bin/libstdc++-6.dll stage/
-          cp /ucrt64/bin/libgcc_s_seh-1.dll stage/
           cp /ucrt64/bin/libwinpthread-1.dll stage/
           cp "$WXLIB/wxbase32u_gcc1420UCRT_x64.dll" stage/ 2>/dev/null || true
           cp "$WXLIB/wxmsw32u_core_gcc1420UCRT_x64.dll" stage/ 2>/dev/null || true
-          export PATH="$WXLIB:/ucrt64/bin:$PATH"
-          ldd build/IzakayaCheater.exe | awk '{print $3}' | grep -E "^(/c/wx|/ucrt64)/" | while read -r d; do [ -f "$d" ] && cp -n "$d" stage/ 2>/dev/null || true; done || true
           cd stage
           7z a "../IzakayaCheater-${GITHUB_REF_NAME}-win64.zip" . > /dev/null
 
