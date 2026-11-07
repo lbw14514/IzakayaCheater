@@ -34,23 +34,27 @@ jobs:
         run: |
           curl -fL -o wx.7z "https://github.com/wxWidgets/wxWidgets/releases/download/v3.2.11/wxMSW-3.2.11_gcc1420UCRT_x64_Dev.7z"
           7z x wx.7z -o/c/wx -y > /dev/null
-          if [ -d /c/wx/lib ]; then
-            echo "WXROOT=/c/wx" >> "$GITHUB_ENV"
+          MSWU=$(find /c/wx -maxdepth 5 -type d -name mswu | head -n1)
+          if [ -n "$MSWU" ]; then
+            LIBDIR=$(dirname "$MSWU")
           else
-            echo "WXROOT=$(ls -d /c/wx/wxWidgets-* | head -n1)" >> "$GITHUB_ENV"
+            LIBDIR=$(find /c/wx -maxdepth 4 -type d -name "gcc*" | head -n1)
           fi
+          WXROOT=$(cd "$LIBDIR/../.." && pwd)
+          echo "found WXROOT=$WXROOT"
+          echo "found WXLIB=$LIBDIR"
+          echo "WXROOT=$WXROOT" >> "$GITHUB_ENV"
+          echo "WXLIB=$LIBDIR" >> "$GITHUB_ENV"
 
       - name: Configure
         run: |
-          LIB=$(ls -d "$WXROOT"/lib/*x64*lib 2>/dev/null | head -n1)
-          if [ -z "$LIB" ]; then
-            LIB=$(ls -d "$WXROOT"/lib/gcc*lib | head -n1)
-          fi
-          echo "wx lib dir: $LIB"
+          echo "WXROOT=$WXROOT"
+          echo "WXLIB=$WXLIB"
+          ls -1 "$WXLIB" || true
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DwxWidgets_ROOT_DIR="$(cygpath -w "$WXROOT")" \
-            -DwxWidgets_LIB_DIR="$(cygpath -w "$LIB")" \
+            -DwxWidgets_LIB_DIR="$(cygpath -w "$WXLIB")" \
             -DwxWidgets_CONFIGURATION=mswu
 
       - name: Build
