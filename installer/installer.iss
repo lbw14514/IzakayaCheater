@@ -1,5 +1,5 @@
 ﻿#define MyAppName "东方夜雀食堂修改器"
-#define MyAppVersion "0.4.1"
+#define MyAppVersion "0.4.2"
 #define MyAppPublisher "lbw14514"
 #define MyAppURL "https://github.com/lbw14514/IzakayaCheater"
 #define MyAppExeName "IzakayaCheater.exe"
@@ -42,6 +42,8 @@ Source: "..\build\WebView2Loader.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\build\libstdc++-6.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "..\build\libgcc_s_seh-1.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "..\build\libwinpthread-1.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "..\build\wxbase32u_gcc1420UCRT_x64.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "..\build\wxmsw32u_core_gcc1420UCRT_x64.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "..\build\web\*"; DestDir: "{app}\web"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]

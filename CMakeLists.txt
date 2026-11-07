@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(IzakayaCheater VERSION 0.4.1 LANGUAGES CXX RC)
+project(IzakayaCheater VERSION 0.4.2 LANGUAGES CXX RC)
 
 configure_file(config.h.in config.h)
 
@@ -34,7 +34,7 @@ set_target_properties(IzakayaCheater PROPERTIES
     CXX_EXTENSIONS OFF)
 
 if(MINGW)
-    target_link_options(IzakayaCheater PRIVATE -mwindows)
+    target_link_options(IzakayaCheater PRIVATE -mwindows -static-libgcc -static-libstdc++)
 elseif(MSVC)
     set_target_properties(IzakayaCheater PROPERTIES WIN32_EXECUTABLE ON)
 endif()
