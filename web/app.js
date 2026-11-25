@@ -164,13 +164,13 @@ const SAVE_WRITE_CONFIRM = '将会修改存档数据 操作不可逆 是否继�
 const BOSS_METHODS = [
   { key: 'A', label: '排队事件 已禁用', endpoint: '/api/boss/queue', flag: 'hasQueue', disabled: true,
     title: '排队事件', text: SAVE_WRITE_CONFIRM,
-    desc: '已禁用 只修改存档 游戏内不会触发' },
+    desc: '已禁用 只往存档写 scheduledEvents 实测不触发 真正生效需要在游戏运行时调用 ScheduleEventExtern' },
   { key: 'B', label: '标记通关', endpoint: '/api/boss/clear', flag: 'hasClear',
     title: '标记通关', text: SAVE_WRITE_CONFIRM,
-    desc: '标记为已通关 不会开打' },
+    desc: '写入 finishedMissions 把最终战标记为已完成 等于跳过 需要自己去再战 不会开打' },
   { key: 'C', label: '邀请函', endpoint: '/api/boss/invite', flag: 'hasInvite',
     title: '邀请函', text: SAVE_WRITE_CONFIRM,
-    desc: '向存档添加邀请函' }
+    desc: '添加邀请函物品 2014 到 2019 可在游戏内使用' }
 ];
 
 async function loadBosses() {
