@@ -10,6 +10,8 @@
 #include <thread>
 
 static std::atomic<bool> g_running(false);
+static std::atomic<bool> g_client(false);
+static std::atomic<ULONGLONG> g_disconnected(0);
 static std::thread g_thread;
 
 static bool ReadMessage(HANDLE pipe, std::string& out)
@@ -69,12 +71,27 @@ static std::string HandleCommand(const std::string& command)
         bool game = Game_GameAssemblyLoaded();
         std::string error;
         bool resolved = game ? Game_EnsureResolved(&error) : false;
-        char buf[320] = {0};
+        std::string detail = "obtain=0";
+        if (game && resolved) {
+            const char* cats[] = {
+                "badges", "clothes", "records", "fishing", "partners", "decorations",
+                "ingredients", "foods", "beverages", "cookers", "recipes", "izakayas"
+            };
+            detail = "obtain=";
+            for (size_t i = 0; i < sizeof(cats) / sizeof(cats[0]); i++) {
+                std::string itemError;
+                bool ok = Game_CheckObtain(cats[i], &itemError);
+                detail += cats[i];
+                detail += ok ? "=1" : "=0";
+                detail += " ";
+            }
+        }
+        char buf[1024] = {0};
         _snprintf(buf, sizeof(buf) - 1,
-                  "game=%d il2cpp=%d moneyReady=%d speedReady=%d obtain=unchecked%s%s",
+                  "game=%d il2cpp=%d moneyReady=%d speedReady=%d %s%s%s",
                   game ? 1 : 0, resolved ? 1 : 0,
                   Game_IsMoneyReady() ? 1 : 0, Game_IsSpeedReady() ? 1 : 0,
-                  error.empty() ? "" : " error=", error.c_str());
+                  detail.c_str(), error.empty() ? "" : " error=", error.c_str());
         return Ok(buf);
     }
     if (command == "INIT") {
@@ -173,6 +190,9 @@ static void IpcThread()
             }
         }
 
+        g_client = true;
+        g_disconnected = 0;
+
         for (;;) {
             std::string message;
             if (!ReadMessage(pipe, message)) break;
@@ -182,11 +202,15 @@ static void IpcThread()
             if (!g_running) break;
         }
 
+        g_client = false;
+        g_disconnected = GetTickCount64();
         FlushFileBuffers(pipe);
         DisconnectNamedPipe(pipe);
         CloseHandle(pipe);
     }
 
+    g_client = false;
+    g_disconnected = GetTickCount64();
     CoreLog("pipe server stop");
 }
 
@@ -194,6 +218,7 @@ void Ipc_Start()
 {
     if (g_running) return;
     g_running = true;
+    g_disconnected = GetTickCount64();
     g_thread = std::thread(IpcThread);
     g_thread.detach();
 }
@@ -206,4 +231,12 @@ void Ipc_Stop()
 bool Ipc_IsRunning()
 {
     return g_running;
+}
+
+bool Ipc_ClientGone(int timeoutMs)
+{
+    if (g_client.load()) return false;
+    ULONGLONG disconnected = g_disconnected.load();
+    if (disconnected == 0) return false;
+    return GetTickCount64() - disconnected > (ULONGLONG)timeoutMs;
 }

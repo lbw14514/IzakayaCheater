@@ -588,7 +588,7 @@ select.level-select { flex: 0 0 150px; width: 150px; }
 
 .switch-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 8px;
   margin: 16px 0 8px;
 }
@@ -603,14 +603,29 @@ select.level-select { flex: 0 0 150px; width: 150px; }
   background: var(--field);
   color: var(--ink);
   font-size: 12px;
+}
+
+.switch-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
   cursor: pointer;
 }
 
-.switch-row input {
+.switch-row input[type="checkbox"] {
   position: absolute;
   opacity: 0;
   width: 0;
   height: 0;
+}
+
+.switch-value {
+  width: 64px;
+  flex: none;
+  padding: 4px 8px;
+  text-align: right;
 }
 
 .switch-track {
@@ -634,9 +649,9 @@ select.level-select { flex: 0 0 150px; width: 150px; }
   transition: transform .16s var(--ease);
 }
 
-.switch-row input:checked + .switch-track { background: var(--ink-soft); }
-.switch-row input:checked + .switch-track .switch-thumb { transform: translateX(12px); }
-.switch-row input:focus-visible + .switch-track { box-shadow: 0 0 0 2px var(--selected); }
+.switch-row input[type="checkbox"]:checked + .switch-track { background: var(--ink-soft); }
+.switch-row input[type="checkbox"]:checked + .switch-track .switch-thumb { transform: translateX(12px); }
+.switch-row input[type="checkbox"]:focus-visible + .switch-track { box-shadow: 0 0 0 2px var(--selected); }
 
 .switch-label { flex: 1; }
 

@@ -19,6 +19,10 @@ static DWORD WINAPI CoreThread(LPVOID)
     std::thread([]() {
         for (;;) {
             Sleep(1000);
+            if (Ipc_ClientGone(10000)) {
+                Game_FreezeTime(false, NULL);
+                MainThread_Uninstall();
+            }
             Game_HoldFreeze();
         }
     }).detach();

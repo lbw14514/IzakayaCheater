@@ -1,6 +1,6 @@
 const $ = (id) => document.getElementById(id);
 
-const state = { slot: null, boss: 0, method: 'B', busy: false, page: 'live' };
+const state = { slot: null, boss: 0, method: 'B', busy: false, page: 'live', attachBusy: false };
 let bosses = [];
 const LIVE_CATEGORIES = [
   ['badges', '徽章'],
@@ -17,19 +17,20 @@ const LIVE_CATEGORIES = [
   ['izakayas', '店面']
 ];
 const FEATURE_SWITCHES = [
-  { key: 'obtain:badges', label: '全部徽章' },
-  { key: 'obtain:clothes', label: '全部衣服' },
-  { key: 'obtain:records', label: '全部唱片' },
-  { key: 'obtain:fishing', label: '全部垂钓' },
-  { key: 'obtain:partners', label: '全部伙伴' },
-  { key: 'obtain:decorations', label: '全部装饰' },
-  { key: 'obtain:ingredients', label: '全部食材' },
-  { key: 'obtain:foods', label: '全部料理' },
-  { key: 'obtain:beverages', label: '全部酒水' },
-  { key: 'obtain:cookers', label: '全部厨具' },
-  { key: 'obtain:recipes', label: '全部食谱' },
-  { key: 'obtain:izakayas', label: '全部店面' },
-  { key: 'freeze_time', label: '暂停时间' }
+  { key: 'freeze_time', label: '暂停时间' },
+  { key: 'freeze_day', label: '锁白天' },
+  { key: 'freeze_night', label: '锁夜晚' },
+  { key: 'max_combo', label: '最高 Combo' },
+  { key: 'lock_patience', label: '锁客人耐心' },
+  { key: 'max_mood', label: '最高心情' },
+  { key: 'instant_cook', label: '瞬烹' },
+  { key: 'perfect_qte', label: '完美 QTE' },
+  { key: 'infinite_exp', label: '无限经验' },
+  { key: 'money_multiplier', label: '金钱倍率', value: 2.0 },
+  { key: 'pickup_multiplier', label: '拾取倍率', value: 2.0 },
+  { key: 'exp_multiplier', label: '经验倍率', value: 2.0 },
+  { key: 'move_speed_multiplier', label: '移动速度', value: 2.0 },
+  { key: 'game_speed', label: '游戏速度', value: 2.0 }
 ];
 
 const FEATURE_HOTKEYS = [
@@ -45,7 +46,8 @@ const FEATURE_HOTKEYS = [
   { codes: ['Digit0', 'Numpad0'], label: 'Ctrl+0' },
   { codes: ['Minus', 'NumpadSubtract'], label: 'Ctrl+-' },
   { codes: ['Equal', 'NumpadAdd'], label: 'Ctrl+=' },
-  { codes: ['Period', 'NumpadDecimal'], label: 'Ctrl+.' }
+  { codes: ['Period', 'NumpadDecimal'], label: 'Ctrl+.' },
+  { codes: ['Slash', 'NumpadDivide'], label: 'Ctrl+/' }
 ];
 
 let liveStatusBusy = false;
@@ -329,8 +331,11 @@ function renderFeatureSwitches() {
   const grid = $('featureSwitches');
   grid.innerHTML = '';
   FEATURE_SWITCHES.forEach((feature, index) => {
-    const row = document.createElement('label');
+    const row = document.createElement('div');
     row.className = 'switch-row';
+
+    const toggle = document.createElement('label');
+    toggle.className = 'switch-toggle';
 
     const input = document.createElement('input');
     input.type = 'checkbox';
@@ -347,12 +352,32 @@ function renderFeatureSwitches() {
     label.className = 'switch-label';
     label.textContent = feature.label;
 
+    toggle.appendChild(input);
+    toggle.appendChild(track);
+    toggle.appendChild(label);
+    row.appendChild(toggle);
+
+    if (feature.value !== undefined) {
+      const value = document.createElement('input');
+      value.type = 'text';
+      value.className = 'input switch-value';
+      value.inputMode = 'decimal';
+      value.dataset.input = 'decimal';
+      value.value = String(feature.value);
+      value.setAttribute('aria-label', feature.label + '数值');
+      value.addEventListener('input', () => {
+        const parsed = Number.parseFloat(value.value);
+        if (Number.isFinite(parsed)) feature.value = parsed;
+      });
+      value.addEventListener('change', () => {
+        if (input.checked) setFeature(feature, true);
+      });
+      row.appendChild(value);
+    }
+
     const key = document.createElement('kbd');
     key.textContent = FEATURE_HOTKEYS[index].label;
 
-    row.appendChild(input);
-    row.appendChild(track);
-    row.appendChild(label);
     row.appendChild(key);
     grid.appendChild(row);
   });
@@ -361,7 +386,9 @@ function renderFeatureSwitches() {
 async function setFeature(feature, enabled) {
   const input = document.querySelector(`input[data-feature="${feature.key}"]`);
   try {
-    const res = await api('/api/trainer/feature', { key: feature.key, enabled });
+    const payload = { key: feature.key, enabled };
+    if (feature.value !== undefined) payload.value = Number(feature.value);
+    const res = await api('/api/trainer/feature', payload);
     if (!res.ok) throw new Error(res.msg || '开关未生效');
   } catch (e) {
     if (input) input.checked = !enabled;
@@ -406,6 +433,17 @@ async function loadTrainerStatus() {
   liveStatusBusy = true;
   try {
     const st = await api('/api/trainer/status');
+    if (st.game && !st.attached && !state.attachBusy) {
+      state.attachBusy = true;
+      try {
+        await api('/api/trainer/attach', {});
+      } catch (e) {
+        // 下一次轮询继续尝试
+      }
+      state.attachBusy = false;
+      if (state.page === 'live') loadTrainerStatus();
+      return;
+    }
     const tag = $('liveTag');
     const procTag = $('procTag');
     const procDesc = $('procDesc');
@@ -693,6 +731,7 @@ document.addEventListener('keydown', (e) => {
   const index = FEATURE_HOTKEYS.findIndex((item) => item.codes.includes(e.code));
   if (index < 0) return;
   const feature = FEATURE_SWITCHES[index];
+  if (!feature) return;
   const input = document.querySelector(`input[data-feature="${feature.key}"]`);
   if (!input) return;
   e.preventDefault();

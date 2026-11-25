@@ -408,6 +408,18 @@ std::string SelfCheckJson()
         (GetFileAttributesA((exeDir + "\\WebView2Loader.dll").c_str()) != INVALID_FILE_ATTRIBUTES ? "已找到" : "缺失"));
     lines.push_back(std::string("web 资源 ") +
         (GetFileAttributesA((g_root + "\\index.html").c_str()) != INVALID_FILE_ATTRIBUTES ? "已找到" : "缺失"));
+    lines.push_back(std::string("web app.js ") +
+        (GetFileAttributesA((g_root + "\\app.js").c_str()) != INVALID_FILE_ATTRIBUTES ? "已找到" : "缺失"));
+    lines.push_back(std::string("web style.css ") +
+        (GetFileAttributesA((g_root + "\\style.css").c_str()) != INVALID_FILE_ATTRIBUTES ? "已找到" : "缺失"));
+    lines.push_back(std::string("角色映射 ") +
+        (GetFileAttributesA((g_root + "\\character_names.json").c_str()) != INVALID_FILE_ATTRIBUTES ? "已找到" : "缺失"));
+    char module[MAX_PATH] = {0};
+    GetModuleFileNameA(NULL, module, MAX_PATH);
+    lines.push_back(std::string("主程序 ") + (module[0] ? module : "未知"));
+    lines.push_back(std::string("版本 ") + VERSION + " / 存档 " + SUPPORTED_VERSION);
+    lines.push_back("地图数量 " + std::to_string(SaveEditor_GetMapCount()));
+    lines.push_back("Boss 数量 " + std::to_string(SaveEditor_GetBossCount()));
     lines.push_back(std::string("管理员权限 ") + (IsElevated() ? "是" : "否"));
 
     char folder[MAX_PATH] = {0};

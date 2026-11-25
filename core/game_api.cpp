@@ -45,6 +45,41 @@ bool ResolveMethod(const char* image, const char* ns, const char* cls, const cha
     return true;
 }
 
+bool ForceCounts999(const char* property, std::string* error)
+{
+    std::string getterName = std::string("get_") + property;
+    void* getter = Il2Cpp_Method(kGameImage, "GameData.RunTime.Common", "RunTimeStorage", getterName.c_str(), 0);
+    void* force = Il2Cpp_Method(kGameImage, "GameData.RunTime.Common", "RunTimeStorage", "ForceObjectsNum", 2);
+    if (!getter || !force) {
+        if (error) *error = std::string("未找到仓库计数方法 ") + property;
+        return false;
+    }
+    if (!Il2Cpp_MethodIsStatic(getter) || !Il2Cpp_MethodIsStatic(force)) {
+        if (error) *error = std::string("仓库计数方法不是静态方法 ") + property;
+        return false;
+    }
+
+    void* intClass = Il2Cpp_Class("mscorlib.dll", "System", "Int32");
+    if (!intClass) intClass = Il2Cpp_Class("System.Private.CoreLib.dll", "System", "Int32");
+    if (!intClass) {
+        if (error) *error = "未找到 System.Int32";
+        return false;
+    }
+    void* empty = Il2Cpp_ArrayNew(intClass, 0);
+    if (!empty) {
+        if (error) *error = "创建空数组失败";
+        return false;
+    }
+
+    void* dictionary = ((void*(*)())Il2Cpp_MethodPointer(getter))();
+    if (!dictionary) {
+        if (error) *error = std::string("仓库字典为空 ") + property;
+        return false;
+    }
+    ((void(*)(void*, void*))Il2Cpp_MethodPointer(force))(dictionary, empty);
+    return true;
+}
+
 bool ResolveOnMain(std::string* error)
 {
     if (!Il2Cpp_Load(error)) return false;
@@ -353,7 +388,7 @@ bool Game_Obtain(const std::string& category, std::string* error)
     std::shared_ptr<State> state = std::make_shared<State>();
     std::string localError;
 
-    if (!MainThread_Run([state, debugDef, dbDef, methodName]() {
+    if (!MainThread_Run([state, debugDef, dbDef, methodName, category]() {
             if (!Il2Cpp_Load(&state->error)) return;
             Il2Cpp_Attach();
 
@@ -373,6 +408,8 @@ bool Game_Obtain(const std::string& category, std::string* error)
                     return;
                 }
                 ((void(*)())ptr)();
+                if (category == "badges" && !ForceCounts999("Badges", &state->error)) return;
+                if (category == "decorations" && !ForceCounts999("Items", &state->error)) return;
                 state->ok = true;
                 state->done = true;
                 return;
@@ -407,6 +444,14 @@ bool Game_Obtain(const std::string& category, std::string* error)
             } else {
                 ((void(*)(void*))inRangePtr)(ids);
             }
+
+            const char* property = NULL;
+            if (strcmp(dbDef->key, "ingredients") == 0) property = "Ingredients";
+            else if (strcmp(dbDef->key, "foods") == 0) property = "Foods";
+            else if (strcmp(dbDef->key, "beverages") == 0) property = "Beverages";
+            else if (strcmp(dbDef->key, "cookers") == 0) property = "Cookers";
+            if (property && !ForceCounts999(property, &state->error)) return;
+
             state->ok = true;
             state->done = true;
         }, 8000, &localError)) {
@@ -416,6 +461,83 @@ bool Game_Obtain(const std::string& category, std::string* error)
 
     if (!state->done || !state->ok) {
         if (error) *error = state->error.empty() ? "执行失败" : state->error;
+        return false;
+    }
+    return true;
+}
+
+bool Game_CheckObtain(const std::string& category, std::string* error)
+{
+    struct DebugDef { const char* key; const char* method; };
+    static const DebugDef kDebug[] = {
+        {"badges", "GetAllBadges"},
+        {"clothes", "GetAllClothes"},
+        {"records", "GetAllRecords"},
+        {"fishing", "GetAllFishingTrophy"},
+        {"partners", "GetAllPartners"},
+        {"decorations", "GetAndUseAllDecorations"}
+    };
+
+    struct DbDef { const char* key; const char* getAll; const char* inRange; bool hasBool; };
+    static const DbDef kDb[] = {
+        {"ingredients", "GetAllIngredients", "IngredientInRange", true},
+        {"foods", "GetAllFoods", "FoodInRange", true},
+        {"beverages", "GetAllBeverages", "BeverageInRange", true},
+        {"cookers", "GetAllCookers", "CookerInRange", true},
+        {"recipes", "GetAllRecipes", "RecipeInRange", true},
+        {"izakayas", "GetAllIzakayas", "IzakayaInRange", false}
+    };
+
+    const DebugDef* debugDef = NULL;
+    const DbDef* dbDef = NULL;
+    for (size_t i = 0; i < sizeof(kDebug) / sizeof(kDebug[0]); i++) {
+        if (category == kDebug[i].key) debugDef = &kDebug[i];
+    }
+    for (size_t i = 0; i < sizeof(kDb) / sizeof(kDb[0]); i++) {
+        if (category == kDb[i].key) dbDef = &kDb[i];
+    }
+    if (!debugDef && !dbDef) {
+        if (error) *error = "未知项目: " + category;
+        return false;
+    }
+
+    bool ok = false;
+    std::string localError;
+    if (!MainThread_Run([&]() {
+            if (!Il2Cpp_Load(&localError)) return;
+            Il2Cpp_Attach();
+
+            if (debugDef) {
+                void* mi = Il2Cpp_Method(kGameImage, "PrototypingManagers", "DaySceneDebugImpl", debugDef->method, 0);
+                if (!mi) {
+                    localError = std::string("未找到 DaySceneDebugImpl.") + debugDef->method;
+                    return;
+                }
+                if (!Il2Cpp_MethodIsStatic(mi)) {
+                    localError = std::string(debugDef->method) + " 不是静态方法";
+                    return;
+                }
+                ok = true;
+                return;
+            }
+
+            void* getAll = Il2Cpp_Method(kGameImage, "GameData.Core.Collections", "DataBaseCore", dbDef->getAll, 0);
+            void* inRange = Il2Cpp_Method(kGameImage, "GameData.RunTime.Common", "RunTimeStorage", dbDef->inRange, dbDef->hasBool ? 2 : 1);
+            if (!getAll || !inRange) {
+                localError = std::string("未找到 ") + dbDef->getAll + " 或 " + dbDef->inRange;
+                return;
+            }
+            if (!Il2Cpp_MethodIsStatic(getAll) || !Il2Cpp_MethodIsStatic(inRange)) {
+                localError = std::string(dbDef->getAll) + " 或 " + dbDef->inRange + " 不是静态方法";
+                return;
+            }
+            ok = true;
+        }, 5000, error)) {
+        return false;
+    }
+
+    if (!ok) {
+        if (error) *error = localError.empty() ? "检查失败" : localError;
         return false;
     }
     return true;

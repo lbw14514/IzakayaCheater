@@ -14,3 +14,4 @@ bool Game_SetMoney(long long value, std::string* error);
 bool Game_GetTimeScale(float* out, std::string* error);
 bool Game_SetTimeScale(float value, std::string* error);
 bool Game_Obtain(const std::string& category, std::string* error);
+bool Game_CheckObtain(const std::string& category, std::string* error);

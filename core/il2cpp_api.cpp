@@ -42,6 +42,7 @@ bool Il2Cpp_Load(std::string* error)
     ok = ok && LoadProc(mod, "il2cpp_object_unbox", (void**)&g_api.object_unbox, error);
     ok = ok && LoadProc(mod, "il2cpp_field_static_get_value", (void**)&g_api.field_static_get_value, error);
     ok = ok && LoadProc(mod, "il2cpp_field_static_set_value", (void**)&g_api.field_static_set_value, error);
+    ok = ok && LoadProc(mod, "il2cpp_array_new", (void**)&g_api.array_new, error);
     ok = ok && LoadProc(mod, "il2cpp_gc_disable", (void**)&g_api.gc_disable, error);
     ok = ok && LoadProc(mod, "il2cpp_gc_enable", (void**)&g_api.gc_enable, error);
 
@@ -166,4 +167,10 @@ void Il2Cpp_GcDisable()
 void Il2Cpp_GcEnable()
 {
     if (g_loaded && g_api.gc_enable) g_api.gc_enable();
+}
+
+void* Il2Cpp_ArrayNew(void* elementClass, size_t length)
+{
+    if (!g_loaded || !g_api.array_new || !elementClass) return NULL;
+    return g_api.array_new(elementClass, length);
 }
