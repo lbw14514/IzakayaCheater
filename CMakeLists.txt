@@ -80,15 +80,18 @@ target_include_directories(IzakayaCheater PRIVATE
 target_link_libraries(IzakayaCheater PRIVATE ${wxWidgets_LIBRARIES} ws2_32)
 
 add_custom_command(TARGET IzakayaCheater POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-            ${CMAKE_CURRENT_SOURCE_DIR}/web
-            $<TARGET_FILE_DIR:IzakayaCheater>/web
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
             ${CMAKE_CURRENT_SOURCE_DIR}/third_party/webview2/x64/WebView2Loader.dll
             $<TARGET_FILE_DIR:IzakayaCheater>/WebView2Loader.dll
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_FILE:IzakayaCheatCore>
             $<TARGET_FILE_DIR:IzakayaCheater>/IzakayaCheatCore.dll)
+
+add_custom_target(sync_web ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_CURRENT_SOURCE_DIR}/web
+            $<TARGET_FILE_DIR:IzakayaCheater>/web)
+add_dependencies(sync_web IzakayaCheater)
 
 if(MINGW)
     get_filename_component(MINGW_RUNTIME_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)

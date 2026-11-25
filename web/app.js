@@ -559,7 +559,18 @@ async function liveAction(button, path, body, title, text) {
 
 const bondMembers = [];
 const HIDDEN_BOND_IDS = new Set([12, 13]);
+const NON_BOND_NAMES = new Set(['蹦蹦跳跳的三妖精', '怨灵']);
 let characterNames = null;
+
+function isRealBondName(name) {
+  if (!name) return false;
+  const text = String(name).trim();
+  if (!text) return false;
+  if (NON_BOND_NAMES.has(text)) return false;
+  if (/占位角色|未知/.test(text)) return false;
+  if (/^角色\s*\d+$/.test(text)) return false;
+  return true;
+}
 
 async function getCharacterNames() {
   if (characterNames) return characterNames;
@@ -630,7 +641,8 @@ async function loadBonds() {
     const groups = new Map();
     data.bonds.forEach((bond) => {
       if (HIDDEN_BOND_IDS.has(Number(bond.id))) return;
-      const name = bond.name || names[String(bond.id)] || ('角色 ' + bond.id);
+      const name = bond.name || names[String(bond.id)];
+      if (!isRealBondName(name)) return;
       if (!groups.has(name)) groups.set(name, { name, ids: [], level: bond.level });
       const group = groups.get(name);
       group.ids.push(bond.id);
@@ -689,16 +701,6 @@ $('btnRefresh').addEventListener('click', async () => {
   } catch (e) {
     toast('刷新失败：' + e.message, 'err');
   }
-});
-
-$('btnBondAll').addEventListener('click', () => {
-  document.querySelectorAll('#bondPersonPanel input[type="checkbox"]').forEach((checkbox) => { checkbox.checked = true; });
-  updateBondToggle();
-});
-
-$('btnBondNone').addEventListener('click', () => {
-  document.querySelectorAll('#bondPersonPanel input[type="checkbox"]').forEach((checkbox) => { checkbox.checked = false; });
-  updateBondToggle();
 });
 
 $('btnBondApply').addEventListener('click', async () => {
