@@ -1,7 +1,10 @@
 #include "save_editor.h"
+#include "json_lite.h"
 #include <stdio.h>
 #include <string.h>
 #include <string>
+#include <vector>
+#include <algorithm>
 #include <limits.h>
 #include <shlobj.h>
 
@@ -99,12 +102,63 @@ static char* LoadFileForEdit(const char* path, long* outLen)
     fclose(f);
     if (bytesRead != (size_t)len) { free(buf); *outLen = -2; return NULL; }
     buf[len] = '\0';
+    std::string jsonError;
+    if (!Json_Validate(buf, (size_t)len, &jsonError)) {
+        free(buf);
+        *outLen = -3;
+        return NULL;
+    }
     *outLen = len;
     return buf;
 }
 
+static bool BackupSaveFile(const char* path)
+{
+    if (GetFileAttributesA(path) == INVALID_FILE_ATTRIBUTES) return true;
+
+    char localAppData[MAX_PATH] = {0};
+    if (FAILED(SHGetFolderPathA(NULL, CSIDL_LOCAL_APPDATA, NULL, 0, localAppData))) return false;
+    std::string root = std::string(localAppData) + "\\IzakayaCheater";
+    std::string dir = root + "\\save_backups";
+    CreateDirectoryA(root.c_str(), NULL);
+    if (!CreateDirectoryA(dir.c_str(), NULL) && GetLastError() != ERROR_ALREADY_EXISTS) return false;
+
+    const char* base = strrchr(path, '\\');
+    base = base ? base + 1 : path;
+    SYSTEMTIME st;
+    GetLocalTime(&st);
+    char name[512] = {0};
+    _snprintf(name, sizeof(name) - 1, "%s.%04d%02d%02d-%02d%02d%02d-%03d.bak",
+              base, st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
+    std::string dst = dir + "\\" + name;
+    if (!CopyFileA(path, dst.c_str(), FALSE)) return false;
+
+    std::string pattern = dir + "\\" + base + ".*.bak";
+    WIN32_FIND_DATAA fd;
+    HANDLE find = FindFirstFileA(pattern.c_str(), &fd);
+    if (find != INVALID_HANDLE_VALUE) {
+        std::vector<std::string> names;
+        do {
+            if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) names.push_back(fd.cFileName);
+        } while (FindNextFileA(find, &fd));
+        FindClose(find);
+        std::sort(names.begin(), names.end());
+        const size_t keep = 30;
+        if (names.size() > keep) {
+            for (size_t i = 0; i < names.size() - keep; i++) {
+                DeleteFileA((dir + "\\" + names[i]).c_str());
+            }
+        }
+    }
+    return true;
+}
+
 static int SaveEditedFile(const char* path, const char* buf, long len)
 {
+    std::string jsonError;
+    if (!Json_Validate(buf, (size_t)len, &jsonError)) return -3;
+    if (!BackupSaveFile(path)) return -10;
+
     std::string temp = std::string(path) + ".ic.tmp";
     FILE* f = fopen(temp.c_str(), "wb");
     if (!f) return -4;

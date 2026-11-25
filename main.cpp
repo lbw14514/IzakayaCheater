@@ -10,6 +10,17 @@
 #include <algorithm>
 
 static const int PREFERRED_PORT = 17845;
+static const int HOTKEY_BASE = 2001;
+static const char* kHotkeyFeatures[] = {
+    "freeze_time", "freeze_day", "freeze_night", "max_combo", "lock_patience",
+    "max_mood", "instant_cook", "perfect_qte", "infinite_exp", "money_multiplier",
+    "pickup_multiplier", "exp_multiplier", "move_speed_multiplier", "game_speed"
+};
+static const int kHotkeyKeys[] = {
+    '1', '2', '3', '4', '5', '6', '7', '8', '9', '0',
+    VK_OEM_MINUS, VK_OEM_PLUS, VK_OEM_PERIOD, VK_OEM_2
+};
+static const int kHotkeyCount = (int)(sizeof(kHotkeyFeatures) / sizeof(kHotkeyFeatures[0]));
 
 #ifndef DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
 #define DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 ((void*)-4)
@@ -66,6 +77,7 @@ class CheatFrame : public wxFrame
     void OnSize(wxSizeEvent& event);
     void OnDpiChanged(wxDPIChangedEvent& event);
     void OnClose(wxCloseEvent& event);
+    void OnHotKey(wxKeyEvent& event);
     void ApplyWindowIcon();
     wxPanel* m_panel;
 };
@@ -81,6 +93,7 @@ CheatFrame::CheatFrame(const wxString& url)
     Bind(wxEVT_SIZE, &CheatFrame::OnSize, this);
     Bind(wxEVT_DPI_CHANGED, &CheatFrame::OnDpiChanged, this);
     Bind(wxEVT_CLOSE_WINDOW, &CheatFrame::OnClose, this);
+    Bind(wxEVT_HOTKEY, &CheatFrame::OnHotKey, this);
 
     Centre();
 
@@ -88,6 +101,11 @@ CheatFrame::CheatFrame(const wxString& url)
     {
         wxMessageBox(wxString::FromUTF8("无法加载 WebView2 界面。请确认 WebView2Loader.dll 与程序在同一目录，且系统已安装 WebView2 运行库。"),
                      wxString::FromUTF8("启动失败"), wxOK | wxICON_ERROR);
+    }
+
+    for (int i = 0; i < kHotkeyCount; i++)
+    {
+        RegisterHotKey(HOTKEY_BASE + i, wxMOD_CONTROL, kHotkeyKeys[i]);
     }
 }
 
@@ -122,8 +140,25 @@ void CheatFrame::OnDpiChanged(wxDPIChangedEvent& event)
 
 void CheatFrame::OnClose(wxCloseEvent& event)
 {
+    for (int i = 0; i < kHotkeyCount; i++)
+    {
+        UnregisterHotKey(HOTKEY_BASE + i);
+    }
     WebViewHost::Destroy();
     WebServer::Stop();
+    event.Skip();
+}
+
+void CheatFrame::OnHotKey(wxKeyEvent& event)
+{
+    int index = event.GetId() - HOTKEY_BASE;
+    if (index < 0 || index >= kHotkeyCount)
+    {
+        event.Skip();
+        return;
+    }
+    wxString json = wxString::Format("{\"type\":\"toggle-feature\",\"key\":\"%s\"}", kHotkeyFeatures[index]);
+    WebViewHost::PostJson(json.utf8_str().data());
     event.Skip();
 }
 

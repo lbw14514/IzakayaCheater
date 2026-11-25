@@ -207,6 +207,16 @@ void WebViewHost::Reload()
     if (g_webview) g_webview->Reload();
 }
 
+void WebViewHost::PostJson(const char* json)
+{
+    if (!g_webview || !json) return;
+    int length = MultiByteToWideChar(CP_UTF8, 0, json, -1, NULL, 0);
+    if (length <= 0) return;
+    std::wstring text((size_t)length, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, json, -1, &text[0], length);
+    g_webview->PostWebMessageAsJson(text.c_str());
+}
+
 void WebViewHost::Destroy()
 {
     g_hasBounds = false;

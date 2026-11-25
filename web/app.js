@@ -739,6 +739,22 @@ document.addEventListener('keydown', (e) => {
   setFeature(feature, input.checked);
 });
 
+if (window.chrome && window.chrome.webview) {
+  window.chrome.webview.addEventListener('message', (event) => {
+    let data = event.data;
+    if (typeof data === 'string') {
+      try { data = JSON.parse(data); } catch { return; }
+    }
+    if (!data || data.type !== 'toggle-feature') return;
+    const feature = FEATURE_SWITCHES.find((item) => item.key === data.key);
+    if (!feature) return;
+    const input = document.querySelector(`input[data-feature="${feature.key}"]`);
+    if (!input) return;
+    input.checked = !input.checked;
+    setFeature(feature, input.checked);
+  });
+}
+
 document.addEventListener('beforeinput', (e) => {
   const input = e.target;
   if (!(input instanceof HTMLInputElement)) return;

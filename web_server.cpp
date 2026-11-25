@@ -241,6 +241,7 @@ std::string ErrorText(int code)
         case -7: return "存档结构不支持该操作";
         case -8: return "该存档里没有好感数据";
         case -9: return "请求数据不合法";
+        case -10: return "自动备份失败，未写入存档";
         default: return "错误代码: " + std::to_string(code);
     }
 }

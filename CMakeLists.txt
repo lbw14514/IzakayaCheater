@@ -62,6 +62,7 @@ endif()
 
 add_executable(IzakayaCheater
     resource.rc
+    json_lite.cpp
     main.cpp
     save_editor.cpp
     trainer_client.cpp
