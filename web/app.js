@@ -159,16 +159,18 @@ function updateSlotTag() {
   $('slotTag').textContent = state.slot === null ? '未选择存档' : 'Mystia#' + state.slot;
 }
 
+const SAVE_WRITE_CONFIRM = '将会修改存档数据 操作不可逆 是否继续';
+
 const BOSS_METHODS = [
   { key: 'A', label: '排队事件 已禁用', endpoint: '/api/boss/queue', flag: 'hasQueue', disabled: true,
-    title: '排队事件', text: '只往存档写 scheduledEvents 实测不触发 是否继续',
-    desc: '已禁用 只往存档写 scheduledEvents 实测不触发 真正生效需要在游戏运行时调用 ScheduleEventExtern' },
+    title: '排队事件', text: SAVE_WRITE_CONFIRM,
+    desc: '已禁用 只修改存档 游戏内不会触发' },
   { key: 'B', label: '标记通关', endpoint: '/api/boss/clear', flag: 'hasClear',
-    title: '标记通关', text: '会把该 Boss 标记为已通关 是跳过不是开打 是否继续',
-    desc: '写入 finishedMissions 把最终战标记为已完成 等于跳过 不会开打' },
+    title: '标记通关', text: SAVE_WRITE_CONFIRM,
+    desc: '标记为已通关 不会开打' },
   { key: 'C', label: '邀请函', endpoint: '/api/boss/invite', flag: 'hasInvite',
-    title: '邀请函', text: '会给该存档添加邀请函 是否继续',
-    desc: '添加邀请函物品 2014 到 2019 可在游戏内使用' }
+    title: '邀请函', text: SAVE_WRITE_CONFIRM,
+    desc: '向存档添加邀请函' }
 ];
 
 async function loadBosses() {
@@ -422,7 +424,7 @@ async function runAutoSelfCheck() {
     const lines = res.lines || [];
     console.info('[自检]\n' + lines.join('\n'));
     const bad = lines.filter((line) => /缺失|读取失败|管理员权限 否/.test(line));
-    if (bad.length) toast('自检发现 ' + bad.length + ' 项异常 详情见控制台', 'err');
+    if (bad.length) toast('自检发现 ' + bad.length + ' 项异常 ', 'err');
   } catch (e) {
     console.warn('自检失败', e);
   }
@@ -501,25 +503,25 @@ async function loadTrainerStatus() {
     } else if (!attached) {
       lamp.className = 'status-lamp detected';
       procTag.textContent = '游戏运行中';
-      procDesc.textContent = '已检测 未附加';
+      procDesc.textContent = '已检测到游戏进程 未注入';
     } else if (!ready) {
       lamp.className = 'status-lamp detected';
-      procTag.textContent = '已附加 未就绪';
+      procTag.textContent = '已注入 未就绪';
       procDesc.textContent = '部分功能未就绪';
     } else {
       lamp.className = 'status-lamp live';
-      procTag.textContent = '已附加';
+      procTag.textContent = '已注入';
       procDesc.textContent = '常用功能可用';
     }
 
     if (!st.game) {
       tag.textContent = '未检测到游戏';
     } else if (!attached) {
-      tag.textContent = '未连接';
+      tag.textContent = '未连接服务';
     } else if (!ready) {
-      tag.textContent = '已连接 未就绪';
+      tag.textContent = '已连接服务 未就绪';
     } else {
-      tag.textContent = '已连接';
+      tag.textContent = '已连接服务';
       if (moneyReady) $('liveMoney').placeholder = '当前金钱 ' + st.money;
     }
 
