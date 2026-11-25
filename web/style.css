@@ -238,6 +238,7 @@ h2 {
 .proc-line { display: flex; align-items: center; gap: 8px; }
 .proc-text { font-size: 13px; color: var(--ink); }
 .proc-status .desc { margin: 0; }
+.proc-status .btn { width: 100%; }
 
 .status-lamp {
   width: 8px;
@@ -654,6 +655,24 @@ select.level-select { flex: 0 0 150px; width: 150px; }
 .switch-row input[type="checkbox"]:focus-visible + .switch-track { box-shadow: 0 0 0 2px var(--selected); }
 
 .switch-label { flex: 1; }
+
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+  max-width: 560px;
+}
+
+.setting-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.setting-copy .desc { margin: 0; }
 
 kbd {
   flex: none;

@@ -1,6 +1,16 @@
 const $ = (id) => document.getElementById(id);
 
-const state = { slot: null, boss: 0, method: 'B', busy: false, page: 'live', attachBusy: false };
+const AUTO_ATTACH_KEY = 'izakaya.autoAttach';
+
+function readAutoAttach() {
+  try {
+    return localStorage.getItem(AUTO_ATTACH_KEY) !== '0';
+  } catch {
+    return true;
+  }
+}
+
+const state = { slot: null, boss: 0, method: 'B', busy: false, page: 'live', attachBusy: false, autoAttach: readAutoAttach() };
 let bosses = [];
 const LIVE_CATEGORIES = [
   ['badges', '徽章'],
@@ -409,13 +419,30 @@ async function ensureLiveAttached() {
   if (state.page !== 'live') return;
   try {
     const st = await api('/api/trainer/status');
-    if (st.game && !st.attached) {
+    if (state.autoAttach && st.game && !st.attached) {
       await api('/api/trainer/attach', {});
     }
   } catch (e) {
     // 状态轮询会显示具体错误
   }
   loadTrainerStatus();
+}
+
+async function attachGame() {
+  if (state.attachBusy) return;
+  state.attachBusy = true;
+  const button = $('btnAttachGame');
+  if (button) button.disabled = true;
+  try {
+    const res = await api('/api/trainer/attach', {});
+    if (!res.ok) throw new Error(res.msg || '附加失败');
+    toast('已附加游戏', 'ok');
+  } catch (e) {
+    toast('附加失败 ' + e.message, 'err');
+  } finally {
+    state.attachBusy = false;
+    loadTrainerStatus();
+  }
 }
 
 async function runAutoSelfCheck() {
@@ -435,7 +462,7 @@ async function loadTrainerStatus() {
   liveStatusBusy = true;
   try {
     const st = await api('/api/trainer/status');
-    if (st.game && !st.attached && !state.attachBusy) {
+    if (state.autoAttach && st.game && !st.attached && !state.attachBusy) {
       state.attachBusy = true;
       try {
         await api('/api/trainer/attach', {});
@@ -450,6 +477,11 @@ async function loadTrainerStatus() {
     const procTag = $('procTag');
     const procDesc = $('procDesc');
     const attached = Boolean(st.attached);
+    const attachButton = $('btnAttachGame');
+    if (attachButton) {
+      attachButton.hidden = !st.game || attached;
+      attachButton.disabled = state.attachBusy;
+    }
     const freezeSwitch = document.querySelector('input[data-feature="freeze_time"]');
     if (freezeSwitch) freezeSwitch.checked = Boolean(st.frozen);
     if (st.featureStates) {
@@ -695,6 +727,22 @@ async function run(button, path, body, title, text) {
 document.querySelectorAll('.nav-btn').forEach((button) => {
   button.addEventListener('click', () => setPage(button.dataset.target));
 });
+
+$('btnAttachGame').addEventListener('click', attachGame);
+
+const autoAttachToggle = $('autoAttachToggle');
+if (autoAttachToggle) {
+  autoAttachToggle.checked = state.autoAttach;
+  autoAttachToggle.addEventListener('change', () => {
+    state.autoAttach = autoAttachToggle.checked;
+    try {
+      localStorage.setItem(AUTO_ATTACH_KEY, state.autoAttach ? '1' : '0');
+    } catch (e) {
+      // 存储失败时只影响下次启动
+    }
+    loadTrainerStatus();
+  });
+}
 
 $('btnRefresh').addEventListener('click', async () => {
   try {

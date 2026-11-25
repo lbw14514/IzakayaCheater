@@ -40,6 +40,7 @@
           <button class="nav-btn active" type="button" role="tab" aria-selected="true" data-target="live">常用功能</button>
           <button class="nav-btn" type="button" role="tab" aria-selected="false" data-target="bond">好感度</button>
           <button class="nav-btn" type="button" role="tab" aria-selected="false" data-target="boss">强开战斗</button>
+          <button class="nav-btn" type="button" role="tab" aria-selected="false" data-target="settings">设置</button>
         </nav>
         <div class="proc-status">
           <div class="proc-line">
@@ -47,6 +48,7 @@
             <span class="proc-text" id="procTag">游戏未启动</span>
           </div>
           <p class="desc" id="procDesc">未检测到游戏进程</p>
+          <button class="btn" id="btnAttachGame" hidden>附加游戏</button>
         </div>
 
         <div class="pane-head pane-head-sub">
@@ -105,6 +107,22 @@
           <p class="desc" id="bossDesc"></p>
           <div class="row">
             <button class="btn accent" id="btnBossRun" disabled>执行</button>
+          </div>
+        </section>
+
+        <section class="card" data-page="settings" hidden>
+          <div class="card-head"><h2>设置</h2></div>
+          <div class="settings-list">
+            <div class="switch-row">
+              <label class="switch-toggle">
+                <input type="checkbox" id="autoAttachToggle">
+                <span class="switch-track"><span class="switch-thumb"></span></span>
+                <span class="setting-copy">
+                  <span class="switch-label">随夜雀食堂启动</span>
+                  <span class="desc">修改器已打开时 夜雀食堂启动后自动附加 关闭后需要手动附加</span>
+                </span>
+              </label>
+            </div>
           </div>
         </section>
       </div>
