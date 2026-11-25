@@ -1,10 +1,9 @@
 #include "save_editor.h"
+#include "backup_manager.h"
 #include "json_lite.h"
 #include <stdio.h>
 #include <string.h>
 #include <string>
-#include <vector>
-#include <algorithm>
 #include <limits.h>
 #include <shlobj.h>
 
@@ -122,60 +121,6 @@ static char* LoadFileForEdit(const char* path, long* outLen, bool validate = tru
     return buf;
 }
 
-static bool BackupSaveFile(const char* path)
-{
-    if (GetFileAttributesA(path) == INVALID_FILE_ATTRIBUTES) return true;
-
-    char localAppData[MAX_PATH] = {0};
-    if (FAILED(SHGetFolderPathA(NULL, CSIDL_LOCAL_APPDATA, NULL, 0, localAppData))) return false;
-    std::string root = std::string(localAppData) + "\\IzakayaCheater";
-    std::string dir = root + "\\save_backups";
-    CreateDirectoryA(root.c_str(), NULL);
-    if (!CreateDirectoryA(dir.c_str(), NULL) && GetLastError() != ERROR_ALREADY_EXISTS) return false;
-
-    const char* base = strrchr(path, '\\');
-    base = base ? base + 1 : path;
-    SYSTEMTIME st;
-    GetLocalTime(&st);
-    char name[512] = {0};
-    _snprintf(name, sizeof(name) - 1, "%s.%04d%02d%02d-%02d%02d%02d-%03d.bak",
-              base, st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
-    std::string dst = dir + "\\" + name;
-    bool copied = false;
-    for (int attempt = 0; attempt < 20 && !copied; attempt++) {
-        std::string candidate = dst;
-        if (attempt > 0) {
-            candidate.insert(candidate.size() - 4, "-" + std::to_string(attempt));
-        }
-        if (CopyFileA(path, candidate.c_str(), TRUE)) {
-            copied = true;
-        } else {
-            DWORD err = GetLastError();
-            if (err != ERROR_FILE_EXISTS && err != ERROR_ALREADY_EXISTS) break;
-        }
-    }
-    if (!copied) return false;
-
-    std::string pattern = dir + "\\" + base + ".*.bak";
-    WIN32_FIND_DATAA fd;
-    HANDLE find = FindFirstFileA(pattern.c_str(), &fd);
-    if (find != INVALID_HANDLE_VALUE) {
-        std::vector<std::string> names;
-        do {
-            if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) names.push_back(fd.cFileName);
-        } while (FindNextFileA(find, &fd));
-        FindClose(find);
-        std::sort(names.begin(), names.end());
-        const size_t keep = 30;
-        if (names.size() > keep) {
-            for (size_t i = 0; i < names.size() - keep; i++) {
-                DeleteFileA((dir + "\\" + names[i]).c_str());
-            }
-        }
-    }
-    return true;
-}
-
 static int SaveEditedFile(const char* path, const char* buf, long len)
 {
     bool valid = false;
@@ -186,7 +131,8 @@ static int SaveEditedFile(const char* path, const char* buf, long len)
         return -2;
     }
     if (!valid) return -11;
-    if (!BackupSaveFile(path)) return -10;
+    std::string backupError;
+    if (!Backup_BeforeWrite(path, buf, (size_t)len, &backupError)) return -10;
 
     std::string temp = std::string(path) + ".ic.tmp";
     FILE* f = fopen(temp.c_str(), "wb");

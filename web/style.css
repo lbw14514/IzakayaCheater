@@ -674,6 +674,48 @@ select.level-select { flex: 0 0 150px; width: 150px; }
 
 .setting-copy .desc { margin: 0; }
 
+.setting-section {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--hairline);
+  max-width: 640px;
+}
+
+.setting-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.setting-section-head h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.backup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.backup-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--panel-line);
+  border-radius: 10px;
+  background: var(--field);
+}
+
+.backup-info { flex: 1; min-width: 0; }
+.backup-time { font-size: 13px; color: var(--ink); }
+.backup-meta { margin-top: 2px; font-size: 12px; color: var(--ink-soft); }
+.backup-empty { padding: 16px 0; color: var(--ink-soft); font-size: 13px; }
+
 kbd {
   flex: none;
   font: 11px/1 ui-monospace, SFMono-Regular, Consolas, monospace;

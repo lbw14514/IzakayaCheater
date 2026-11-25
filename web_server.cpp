@@ -1,4 +1,5 @@
 #include "web_server.h"
+#include "backup_manager.h"
 #include "save_editor.h"
 #include "trainer_client.h"
 #include "config.h"
@@ -243,6 +244,7 @@ std::string ErrorText(int code)
         case -9: return "请求数据不合法";
         case -10: return "自动备份失败，未写入存档";
         case -11: return "编辑结果未通过 JSON 校验，已拒绝写入";
+        case -12: return "备份操作失败";
         default: return "错误代码: " + std::to_string(code);
     }
 }
@@ -270,6 +272,28 @@ bool SlotPath(int slot, std::string& path)
     if (SaveEditor_GetPath(slot, buf, sizeof(buf))) return false;
     path = buf;
     return true;
+}
+
+std::string BackupsJson(int slot)
+{
+    std::string path;
+    if (!SlotPath(slot, path)) return Result(-1);
+    std::vector<BackupEntry> backups;
+    std::string error;
+    if (!Backup_List(path.c_str(), backups, &error)) return Result(-12, error);
+
+    std::string body = "{\"ok\":true,\"slot\":" + std::to_string(slot) + ",\"backups\":[";
+    for (size_t i = 0; i < backups.size(); i++)
+    {
+        if (i) body += ",";
+        body += "{\"id\":" + std::to_string(backups[i].id);
+        body += ",\"time\":\"" + JsonEscape(backups[i].time) + "\"";
+        body += ",\"kind\":\"" + JsonEscape(backups[i].kind) + "\"";
+        body += ",\"size\":" + std::to_string(backups[i].size);
+        body += ",\"sha256\":\"" + backups[i].sha256 + "\"}";
+    }
+    body += "]}";
+    return body;
 }
 
 int ReadSlotFund(int slot)
@@ -481,6 +505,25 @@ std::string HandleApi(const std::string& rawPath, const std::string& body)
         int fund = ReadSlotFund(slot);
         if (fund < 0) return Result(-1);
         return "{\"ok\":true,\"slot\":" + std::to_string(slot) + ",\"fund\":" + std::to_string(fund) + "}";
+    }
+
+    if (path == "/api/backups")
+    {
+        int slot = QueryInt(rawPath, "slot", -1);
+        if (slot < 0) return Result(-1);
+        return BackupsJson(slot);
+    }
+
+    if (path == "/api/backups/restore")
+    {
+        int slot = GetIntField(body, "slot", -1);
+        int id = GetIntField(body, "id", -1);
+        if (slot < 0 || id < 0) return Result(-1);
+        std::string file;
+        if (!SlotPath(slot, file)) return Result(-1);
+        std::string error;
+        if (!Backup_Restore(file.c_str(), id, &error)) return Result(-12, error);
+        return Result(0, "已恢复备份");
     }
 
     if (path == "/api/bg")

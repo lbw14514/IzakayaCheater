@@ -62,6 +62,7 @@ endif()
 
 add_executable(IzakayaCheater
     resource.rc
+    backup_manager.cpp
     json_lite.cpp
     main.cpp
     save_editor.cpp
@@ -77,7 +78,7 @@ target_include_directories(IzakayaCheater PRIVATE
     ${PROJECT_SOURCE_DIR}
     ${PROJECT_SOURCE_DIR}/third_party/webview2/include)
 
-target_link_libraries(IzakayaCheater PRIVATE ${wxWidgets_LIBRARIES} ws2_32)
+target_link_libraries(IzakayaCheater PRIVATE ${wxWidgets_LIBRARIES} ws2_32 bcrypt)
 
 add_custom_command(TARGET IzakayaCheater POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different

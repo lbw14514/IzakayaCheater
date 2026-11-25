@@ -163,6 +163,7 @@ function selectSlot(slot) {
   });
   updateSlotTag();
   if (state.page === 'bond') loadBonds();
+  if (state.page === 'settings') loadBackups();
 }
 
 function updateSlotTag() {
@@ -324,6 +325,7 @@ function setPage(page) {
   });
   if (page === 'live') ensureLiveAttached();
   if (page === 'bond') loadBonds();
+  if (page === 'settings') loadBackups();
 }
 
 function renderLiveCategories() {
@@ -696,6 +698,86 @@ async function loadBonds() {
     setBondPanel(false);
     tag.textContent = '读取失败';
     $('bondDesc').textContent = e.message;
+  }
+}
+
+async function loadBackups() {
+  const tag = $('backupTag');
+  const list = $('backupList');
+  const desc = $('backupDesc');
+  if (!list || !tag || !desc) return;
+  list.innerHTML = '';
+
+  if (state.slot === null) {
+    tag.textContent = '未选择存档';
+    desc.textContent = '请先选择一个存档';
+    return;
+  }
+
+  tag.textContent = 'Mystia#' + state.slot;
+  try {
+    const data = await api('/api/backups?slot=' + state.slot);
+    if (!data.ok) throw new Error(data.msg || '读取备份失败');
+    const backups = (data.backups || []).slice().sort((a, b) => b.id - a.id);
+    if (!backups.length) {
+      const empty = document.createElement('div');
+      empty.className = 'backup-empty';
+      empty.textContent = '该存档还没有备份 第一次写入后自动生成初始备份';
+      list.appendChild(empty);
+      desc.textContent = '写入前自动备份 可恢复到任意版本 恢复前请先关闭游戏';
+      return;
+    }
+
+    desc.textContent = '共 ' + backups.length + ' 个版本 恢复前请先关闭游戏';
+    backups.forEach((entry) => {
+      const item = document.createElement('div');
+      item.className = 'backup-item';
+
+      const info = document.createElement('div');
+      info.className = 'backup-info';
+      const time = document.createElement('div');
+      time.className = 'backup-time';
+      time.textContent = entry.time || '未知时间';
+      const meta = document.createElement('div');
+      meta.className = 'backup-meta';
+      const kind = entry.kind === 'initial' ? '初始未修改' : entry.kind === 'full' ? '全量' : '增量';
+      meta.textContent = kind + ' · ' + sizeText(Number(entry.size) || 0);
+      info.appendChild(time);
+      info.appendChild(meta);
+
+      const button = document.createElement('button');
+      button.className = 'btn';
+      button.type = 'button';
+      button.textContent = '恢复';
+      button.addEventListener('click', () => restoreBackup(entry));
+
+      item.appendChild(info);
+      item.appendChild(button);
+      list.appendChild(item);
+    });
+  } catch (e) {
+    const empty = document.createElement('div');
+    empty.className = 'backup-empty';
+    empty.textContent = '读取失败 ' + e.message;
+    list.appendChild(empty);
+    desc.textContent = '备份读取失败';
+  }
+}
+
+async function restoreBackup(entry) {
+  if (state.slot === null) {
+    toast('请先选择一个存档', 'err');
+    return;
+  }
+  const ok = await confirmBox('恢复备份', '会把当前存档替换为 ' + entry.time + ' 的版本 当前状态会先自动备份 是否继续');
+  if (!ok) return;
+  try {
+    const res = await api('/api/backups/restore', { slot: state.slot, id: entry.id });
+    if (!res.ok) throw new Error(res.msg || '恢复失败');
+    toast('已恢复备份', 'ok');
+    await loadSaves(true);
+  } catch (e) {
+    toast('恢复失败 ' + e.message, 'err');
   }
 }
 

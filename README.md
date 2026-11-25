@@ -26,7 +26,7 @@ ps：其实是瘾大
 ## 用之前
 
 > **一定先备份存档**
-> 写入前会自动备份到 %LOCALAPPDATA%\IzakayaCheater\save_backups 最多 30 份 但自己再备一份更稳
+> 写入前会自动备份 设置页可回滚到任意版本 备份在 %LOCALAPPDATA%\IzakayaCheater\save_backups 但自己再备一份更稳
 
 1. 关掉 Steam 云同步 库 右键游戏 属性 通用 取消勾选保留在云 否则改完会被云同步还原回去
 2. 只玩过本体的 开全地图 不然 DLC 地区去不了
