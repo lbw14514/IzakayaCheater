@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(IzakayaCheater VERSION 0.6.2 LANGUAGES C CXX RC)
+project(IzakayaCheater VERSION 0.6.3 LANGUAGES C CXX RC)
 
 include(CTest)
 
