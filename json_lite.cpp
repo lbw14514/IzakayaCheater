@@ -294,7 +294,9 @@ private:
         memcpy(token, start, tokenLength);
         token[tokenLength] = '\0';
         char* numberEnd = NULL;
-        double value = _strtod_l(token, &numberEnd, JsonNumericLocale());
+        _locale_t numericLocale = JsonNumericLocale();
+        double value = numericLocale ? _strtod_l(token, &numberEnd, numericLocale)
+                                     : strtod(token, &numberEnd);
         if (!numberEnd || numberEnd != token + tokenLength || !std::isfinite(value)) {
             return Fail("数字超出范围");
         }

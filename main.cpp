@@ -11,6 +11,9 @@
 #include <cstdio>
 
 static const int PREFERRED_PORT = 17845;
+#ifndef MOD_NOREPEAT
+#define MOD_NOREPEAT 0x4000
+#endif
 static const int HOTKEY_BASE = 2001;
 static const char* kHotkeyFeatures[] = {
     "freeze_time", "freeze_day", "freeze_night", "max_combo", "lock_patience",
@@ -111,7 +114,7 @@ CheatFrame::CheatFrame(const wxString& url)
     wxString failedHotkeys;
     for (int i = 0; i < kHotkeyCount; i++)
     {
-        if (!RegisterHotKey(HOTKEY_BASE + i, wxMOD_CONTROL, kHotkeyKeys[i]))
+        if (!::RegisterHotKey((HWND)GetHWND(), HOTKEY_BASE + i, MOD_CONTROL | MOD_NOREPEAT, kHotkeyKeys[i]))
         {
             failedHotkeys += wxString::FromUTF8(kHotkeyLabels[i]);
             failedHotkeys += " ";
@@ -159,7 +162,7 @@ void CheatFrame::OnClose(wxCloseEvent& event)
 {
     for (int i = 0; i < kHotkeyCount; i++)
     {
-        UnregisterHotKey(HOTKEY_BASE + i);
+        ::UnregisterHotKey((HWND)GetHWND(), HOTKEY_BASE + i);
     }
     WebViewHost::Destroy();
     WebServer::Stop();

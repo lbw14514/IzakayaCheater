@@ -384,6 +384,7 @@ std::string TrainerStatusJson()
     _snprintf(speed, sizeof(speed) - 1, "%.4f", st.timeScale);
     body += ",\"timeScale\":" + std::string(speed);
     body += ",\"featureStates\":\"" + JsonEscape(st.featureStates) + "\"";
+    body += ",\"featureValues\":\"" + JsonEscape(st.featureValues) + "\"";
     body += ",\"error\":\"" + JsonEscape(st.error) + "\"}";
     return body;
 }

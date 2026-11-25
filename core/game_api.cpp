@@ -614,6 +614,11 @@ std::string Game_FeatureStates()
     return Features_States();
 }
 
+std::string Game_FeatureValues()
+{
+    return Features_Values();
+}
+
 void Game_DisableFeatures()
 {
     if (!g_featuresInitAttempted) return;

@@ -663,6 +663,21 @@ std::string Features_States()
     return out;
 }
 
+std::string Features_Values()
+{
+    std::string out;
+    for (size_t i = 0; i < sizeof(kFeatures) / sizeof(kFeatures[0]); i++) {
+        if (!kFeatures[i].hasValue) continue;
+        if (!out.empty()) out += " ";
+        char value[40] = {0};
+        _snprintf(value, sizeof(value) - 1, "%.4f", g_value[kFeatures[i].id].load(std::memory_order_relaxed));
+        out += kFeatures[i].key;
+        out += "=";
+        out += value;
+    }
+    return out;
+}
+
 void Features_OnObtainBegin()
 {
     g_skipItemMultiplier.store(true, std::memory_order_relaxed);

@@ -12,6 +12,7 @@ struct TrainerStatus
     long long money;
     float timeScale;
     std::string featureStates;
+    std::string featureValues;
     std::string error;
 
     TrainerStatus() : gameRunning(false), attached(false), resolved(false),

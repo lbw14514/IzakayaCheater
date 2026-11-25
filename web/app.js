@@ -463,6 +463,32 @@ async function loadTrainerStatus() {
         if (input) input.checked = states[feature.key];
       });
     }
+    if (st.featureValues) {
+      const values = {};
+      st.featureValues.split(' ').forEach((item) => {
+        const parts = item.split('=');
+        if (parts.length === 2) values[parts[0]] = Number.parseFloat(parts[1]);
+      });
+      FEATURE_SWITCHES.forEach((feature) => {
+        if (!Object.prototype.hasOwnProperty.call(values, feature.key)) return;
+        const parsed = values[feature.key];
+        if (!Number.isFinite(parsed)) return;
+        feature.value = parsed;
+        const input = document.querySelector(`input[data-feature="${feature.key}"]`);
+        const row = input && input.closest('.switch-row');
+        const valueInput = row && row.querySelector('input.switch-value');
+        if (valueInput && document.activeElement !== valueInput) {
+          valueInput.value = String(parsed);
+        }
+      });
+    }
+    if (!attached) {
+      FEATURE_SWITCHES.forEach((feature) => {
+        if (feature.key === 'freeze_time') return;
+        const input = document.querySelector(`input[data-feature="${feature.key}"]`);
+        if (input) input.checked = false;
+      });
+    }
     const moneyReady = attached && Boolean(st.moneyReady);
     const obtainReady = attached && Boolean(st.game);
     const ready = moneyReady || obtainReady;
@@ -739,7 +765,6 @@ $('btnBossRun').addEventListener('click', () => {
 });
 
 document.addEventListener('keydown', (e) => {
-  if (e.repeat) return;
   if (!e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) return;
   if (e.target && e.target.closest && e.target.closest('input:not([type="checkbox"]), textarea, select')) return;
   const index = FEATURE_HOTKEYS.findIndex((item) => item.codes.includes(e.code));
@@ -749,6 +774,7 @@ document.addEventListener('keydown', (e) => {
   const input = document.querySelector(`input[data-feature="${feature.key}"]`);
   if (!input) return;
   e.preventDefault();
+  if (e.repeat) return;
   input.checked = !input.checked;
   setFeature(feature, input.checked);
 });

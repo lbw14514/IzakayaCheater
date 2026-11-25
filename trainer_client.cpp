@@ -87,6 +87,16 @@ void ParseFeatureStates(const std::string& reply, std::string* out)
     *out = reply.substr(pos, end == std::string::npos ? std::string::npos : end - pos);
 }
 
+void ParseFeatureValues(const std::string& reply, std::string* out)
+{
+    out->clear();
+    size_t pos = reply.find(" values=");
+    if (pos == std::string::npos) return;
+    pos += 8;
+    size_t end = reply.find(' ', pos);
+    *out = reply.substr(pos, end == std::string::npos ? std::string::npos : end - pos);
+}
+
 bool CommandLocked(const std::string& command, std::string* reply, std::string* error)
 {
     if (g_pipe == INVALID_HANDLE_VALUE) {
@@ -176,6 +186,7 @@ bool TrainerClient_Status(TrainerStatus* out)
 {
     if (!out) return false;
     out->featureStates.clear();
+    out->featureValues.clear();
     std::lock_guard<std::mutex> guard(g_lock);
 
     DWORD pid = 0;
@@ -275,6 +286,9 @@ bool TrainerClient_Status(TrainerStatus* out)
         out->frozen = false;
         out->error = "无法解析状态: " + reply;
     }
-    if (out->error.empty()) ParseFeatureStates(reply, &out->featureStates);
+    if (out->error.empty()) {
+        ParseFeatureStates(reply, &out->featureStates);
+        ParseFeatureValues(reply, &out->featureValues);
+    }
     return true;
 }

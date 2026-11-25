@@ -753,7 +753,8 @@ int SaveEditor_UnlockAllMaps(const char* path)
         unlocked += grp.count - already;
     }
 
-    ret = (SaveEditedFile(path, buf, len) == 0) ? unlocked : -4;
+    int saveRet = SaveEditedFile(path, buf, len);
+    ret = (saveRet == 0) ? unlocked : saveRet;
     free(buf);
     return ret;
 }
@@ -792,7 +793,8 @@ int SaveEditor_MaxAllBonds(const char* path)
         p = v + strlen(BOND_LVL_VALUE);
     }
 
-    int ret = (SaveEditedFile(path, buf, len) == 0) ? entries : -4;
+    int saveRet = SaveEditedFile(path, buf, len);
+    int ret = (saveRet == 0) ? entries : saveRet;
     free(buf);
     return ret;
 }
@@ -923,7 +925,8 @@ int SaveEditor_SetBondLevels(const char* path, const int* ids, int count, int le
         p = end;
     }
 
-    int ret = (SaveEditedFile(path, buf, len) == 0) ? applied : -4;
+    int saveRet = SaveEditedFile(path, buf, len);
+    int ret = (saveRet == 0) ? applied : saveRet;
     free(buf);
     return ret;
 }

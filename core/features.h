@@ -10,5 +10,6 @@ void Features_DisableAll();
 float Features_UnscaleTimeScale(float current);
 std::string Features_Readiness();
 std::string Features_States();
+std::string Features_Values();
 void Features_OnObtainBegin();
 void Features_OnObtainEnd();
