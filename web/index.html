@@ -78,10 +78,8 @@
             <span class="tag" id="bondTag">未选择存档</span>
           </div>
           <div class="row">
-            <div class="multiselect">
-              <button class="btn ms-toggle" type="button" id="bondPersonToggle" aria-expanded="false">选择人物</button>
-              <div class="ms-panel" id="bondPersonPanel" hidden></div>
-            </div>
+            <button class="btn" id="btnBondAll">全选</button>
+            <button class="btn" id="btnBondNone">清空</button>
             <select id="bondLevel" class="input level-select">
               <option value="5">等级 5 （满级）</option>
               <option value="4">等级 4</option>
@@ -92,6 +90,7 @@
             </select>
             <button class="btn accent" id="btnBondApply">写入选中角色</button>
           </div>
+          <div class="bond-grid" id="bondPersonPanel"></div>
           <p class="desc" id="bondDesc">选择存档后读取角色 选人物和等级后写入</p>
         </section>
 

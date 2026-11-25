@@ -2,6 +2,7 @@
 #include "il2cpp_api.h"
 #include "log.h"
 #include "main_thread.h"
+#include <atomic>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -16,6 +17,8 @@ void* g_getFund = NULL;
 void* g_setFund = NULL;
 void* g_getTimeScale = NULL;
 void* g_setTimeScale = NULL;
+std::atomic<bool> g_frozen(false);
+float g_savedTimeScale = 1.0f;
 
 const char* kGameImage = "Assembly-CSharp.dll";
 const char* kUnityImage = "UnityEngine.CoreModule.dll";
@@ -237,6 +240,72 @@ bool Game_SetTimeScale(float value, std::string* error)
         return false;
     }
     return true;
+}
+
+bool Game_FreezeTime(bool enabled, std::string* error)
+{
+    if (!g_speedReady) {
+        if (error) *error = "时间控制方法未解析";
+        return false;
+    }
+    void* getPtr = Il2Cpp_MethodPointer(g_getTimeScale);
+    void* setPtr = Il2Cpp_MethodPointer(g_setTimeScale);
+    if (!getPtr || !setPtr) {
+        if (error) *error = "时间控制方法指针为空";
+        return false;
+    }
+
+    if (enabled) {
+        if (g_frozen.load()) return true;
+        bool done = false;
+        std::string localError;
+        if (!MainThread_Run([&]() {
+                g_savedTimeScale = ((float(*)())getPtr)();
+                ((void(*)(float))setPtr)(0.0f);
+                done = true;
+            }, 3000, &localError)) {
+            if (error) *error = localError;
+            return false;
+        }
+        if (!done) {
+            if (error) *error = "暂停时间失败";
+            return false;
+        }
+        g_frozen = true;
+        return true;
+    }
+
+    if (!g_frozen.exchange(false)) return true;
+    bool done = false;
+    std::string localError;
+    if (!MainThread_Run([&]() {
+            ((void(*)(float))setPtr)(g_savedTimeScale);
+            done = true;
+        }, 3000, &localError)) {
+        if (error) *error = localError;
+        return false;
+    }
+    if (!done) {
+        if (error) *error = "恢复时间失败";
+        return false;
+    }
+    return true;
+}
+
+bool Game_IsFrozen()
+{
+    return g_frozen.load();
+}
+
+bool Game_HoldFreeze()
+{
+    if (!g_frozen.load() || !g_speedReady) return false;
+    void* setPtr = Il2Cpp_MethodPointer(g_setTimeScale);
+    if (!setPtr) return false;
+    return MainThread_Run([setPtr]() {
+        if (!g_frozen.load()) return;
+        ((void(*)(float))setPtr)(0.0f);
+    }, 2000, NULL);
 }
 
 bool Game_Obtain(const std::string& category, std::string* error)

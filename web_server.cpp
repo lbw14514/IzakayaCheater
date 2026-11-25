@@ -161,6 +161,20 @@ double GetFloatField(const std::string& body, const std::string& key, double def
     return value;
 }
 
+bool GetBoolField(const std::string& body, const std::string& key, bool def)
+{
+    std::string needle = "\"" + key + "\"";
+    size_t p = body.find(needle);
+    if (p == std::string::npos) return def;
+    p = body.find(':', p + needle.size());
+    if (p == std::string::npos) return def;
+    const char* s = body.c_str() + p + 1;
+    while (*s == ' ' || *s == '\t' || *s == '\n' || *s == '\r') s++;
+    if (_strnicmp(s, "true", 4) == 0) return true;
+    if (_strnicmp(s, "false", 5) == 0) return false;
+    return atoi(s) != 0;
+}
+
 void GetIntArrayField(const std::string& body, const std::string& key, std::vector<int>& out)
 {
     std::string needle = "\"" + key + "\"";
@@ -361,6 +375,8 @@ std::string TrainerStatusJson()
     body += st.moneyReady ? "true" : "false";
     body += ",\"speedReady\":";
     body += st.speedReady ? "true" : "false";
+    body += ",\"frozen\":";
+    body += st.frozen ? "true" : "false";
     body += ",\"money\":" + std::to_string(st.money);
     char speed[64] = {0};
     _snprintf(speed, sizeof(speed) - 1, "%.4f", st.timeScale);
@@ -571,6 +587,46 @@ std::string HandleApi(const std::string& rawPath, const std::string& body)
         return TrainerStatusJson();
     }
 
+    if (path == "/api/trainer/feature")
+    {
+        std::string key = GetStringField(body, "key");
+        bool enabled = GetBoolField(body, "enabled", false);
+
+        if (key.compare(0, 7, "obtain:") == 0)
+        {
+            std::string category = key.substr(7);
+            static const char* kAllowed[] = {
+                "badges", "clothes", "records", "fishing", "partners", "decorations",
+                "ingredients", "foods", "beverages", "cookers", "recipes", "izakayas"
+            };
+            bool allowed = false;
+            for (size_t i = 0; i < sizeof(kAllowed) / sizeof(kAllowed[0]); i++)
+            {
+                if (category == kAllowed[i]) allowed = true;
+            }
+            if (!allowed) return Result(-1, "未知开关");
+            if (!enabled) return Result(0, "已关闭");
+
+            std::string reply;
+            std::string error;
+            if (!TrainerClient_Command("OBTAIN " + category, &reply, &error)) return Result(-1, error);
+            if (reply.compare(0, 2, "OK") != 0) return Result(-1, CommandError(reply));
+            return Result(0, "已执行");
+        }
+
+        if (key == "freeze_time")
+        {
+            std::string reply;
+            std::string error;
+            std::string command = std::string("FREEZE ") + (enabled ? "1" : "0");
+            if (!TrainerClient_Command(command, &reply, &error)) return Result(-1, error);
+            if (reply.compare(0, 2, "OK") != 0) return Result(-1, CommandError(reply));
+            return Result(0, enabled ? "已暂停" : "已恢复");
+        }
+
+        return Result(-1, "未知开关");
+    }
+
     if (path == "/api/selfcheck")
     {
         return SelfCheckJson();
@@ -585,6 +641,9 @@ std::string HandleApi(const std::string& rawPath, const std::string& body)
 
     if (path == "/api/trainer/detach")
     {
+        std::string reply;
+        std::string error;
+        TrainerClient_Command("FREEZE 0", &reply, &error);
         TrainerClient_Detach();
         return Result(0, "已卸下");
     }

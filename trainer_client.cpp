@@ -176,6 +176,7 @@ bool TrainerClient_Status(TrainerStatus* out)
         out->resolved = false;
         out->moneyReady = false;
         out->speedReady = false;
+        out->frozen = false;
         out->money = 0;
         out->timeScale = 1.0f;
         out->error.clear();
@@ -187,6 +188,7 @@ bool TrainerClient_Status(TrainerStatus* out)
         out->resolved = false;
         out->moneyReady = false;
         out->speedReady = false;
+        out->frozen = false;
         out->money = 0;
         out->timeScale = 1.0f;
         out->error.clear();
@@ -201,6 +203,7 @@ bool TrainerClient_Status(TrainerStatus* out)
         out->resolved = false;
         out->moneyReady = false;
         out->speedReady = false;
+        out->frozen = false;
         out->money = 0;
         out->timeScale = 1.0f;
         out->error = error;
@@ -212,6 +215,7 @@ bool TrainerClient_Status(TrainerStatus* out)
         out->resolved = false;
         out->moneyReady = false;
         out->speedReady = false;
+        out->frozen = false;
         out->error = reply.size() > 4 ? reply.substr(4) : reply;
         return true;
     }
@@ -220,15 +224,27 @@ bool TrainerClient_Status(TrainerStatus* out)
     int resolved = 0;
     int moneyReady = 0;
     int speedReady = 0;
+    int frozen = 0;
     long long money = 0;
     double speed = 1.0;
     int fields = sscanf(reply.c_str(),
-                        "OK game=%d resolved=%d moneyReady=%d speedReady=%d money=%lld timeScale=%lf",
-                        &game, &resolved, &moneyReady, &speedReady, &money, &speed);
-    if (fields == 6) {
+                        "OK game=%d resolved=%d moneyReady=%d speedReady=%d frozen=%d money=%lld timeScale=%lf",
+                        &game, &resolved, &moneyReady, &speedReady, &frozen, &money, &speed);
+    if (fields == 7) {
         out->resolved = resolved != 0;
         out->moneyReady = moneyReady != 0;
         out->speedReady = speedReady != 0;
+        out->frozen = frozen != 0;
+        out->money = money;
+        out->timeScale = (float)speed;
+        out->error.clear();
+    } else if (sscanf(reply.c_str(),
+                      "OK game=%d resolved=%d moneyReady=%d speedReady=%d money=%lld timeScale=%lf",
+                      &game, &resolved, &moneyReady, &speedReady, &money, &speed) == 6) {
+        out->resolved = resolved != 0;
+        out->moneyReady = moneyReady != 0;
+        out->speedReady = speedReady != 0;
+        out->frozen = false;
         out->money = money;
         out->timeScale = (float)speed;
         out->error.clear();
@@ -237,6 +253,7 @@ bool TrainerClient_Status(TrainerStatus* out)
         out->resolved = resolved != 0;
         out->moneyReady = resolved != 0;
         out->speedReady = resolved != 0;
+        out->frozen = false;
         out->money = money;
         out->timeScale = (float)speed;
         out->error.clear();
@@ -244,6 +261,7 @@ bool TrainerClient_Status(TrainerStatus* out)
         out->resolved = false;
         out->moneyReady = false;
         out->speedReady = false;
+        out->frozen = false;
         out->error = "无法解析状态: " + reply;
     }
     return true;

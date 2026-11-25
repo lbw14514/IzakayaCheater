@@ -1,7 +1,9 @@
+#include "game_api.h"
 #include "ipc_server.h"
 #include "log.h"
 #include "main_thread.h"
 #include <windows.h>
+#include <thread>
 
 static DWORD WINAPI CoreThread(LPVOID)
 {
@@ -13,6 +15,14 @@ static DWORD WINAPI CoreThread(LPVOID)
     }
 
     Ipc_Start();
+
+    std::thread([]() {
+        for (;;) {
+            Sleep(1000);
+            Game_HoldFreeze();
+        }
+    }).detach();
+
     return 0;
 }
 

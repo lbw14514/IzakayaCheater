@@ -48,6 +48,7 @@ static std::string HandleStatus()
     bool resolved = Game_IsResolved();
     bool moneyReady = Game_IsMoneyReady();
     bool speedReady = Game_IsSpeedReady();
+    bool frozen = Game_IsFrozen();
     long long money = 0;
     float speed = 1.0f;
     std::string ignored;
@@ -55,8 +56,9 @@ static std::string HandleStatus()
     if (speedReady) Game_GetTimeScale(&speed, &ignored);
     char buf[320] = {0};
     _snprintf(buf, sizeof(buf) - 1,
-              "game=%d resolved=%d moneyReady=%d speedReady=%d money=%lld timeScale=%.4f",
-              game ? 1 : 0, resolved ? 1 : 0, moneyReady ? 1 : 0, speedReady ? 1 : 0, money, speed);
+              "game=%d resolved=%d moneyReady=%d speedReady=%d frozen=%d money=%lld timeScale=%.4f",
+              game ? 1 : 0, resolved ? 1 : 0, moneyReady ? 1 : 0, speedReady ? 1 : 0,
+              frozen ? 1 : 0, money, speed);
     return Ok(buf);
 }
 
@@ -120,6 +122,14 @@ static std::string HandleCommand(const std::string& command)
             return Ok("done");
         }
         return Err("未知速度命令");
+    }
+
+    if (head == "FREEZE") {
+        std::string error;
+        if (!Game_EnsureResolved(&error)) return Err(error);
+        bool enabled = (rest == "1" || rest == "true");
+        if (!Game_FreezeTime(enabled, &error)) return Err(error);
+        return Ok(enabled ? "frozen" : "restored");
     }
 
     if (head == "OBTAIN") {

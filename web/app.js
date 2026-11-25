@@ -410,6 +410,8 @@ async function loadTrainerStatus() {
     const procTag = $('procTag');
     const procDesc = $('procDesc');
     const attached = Boolean(st.attached);
+    const freezeSwitch = document.querySelector('input[data-feature="freeze_time"]');
+    if (freezeSwitch) freezeSwitch.checked = Boolean(st.frozen);
     const moneyReady = attached && Boolean(st.moneyReady);
     const obtainReady = attached && Boolean(st.game);
     const ready = moneyReady || obtainReady;
@@ -479,20 +481,29 @@ async function liveAction(button, path, body, title, text) {
 }
 
 const bondMembers = [];
+const HIDDEN_BOND_IDS = new Set([12, 13]);
+let characterNames = null;
+
+async function getCharacterNames() {
+  if (characterNames) return characterNames;
+  try {
+    const res = await fetch('character_names.json');
+    characterNames = res.ok ? await res.json() : {};
+  } catch (e) {
+    characterNames = {};
+  }
+  return characterNames;
+}
 
 function bondCheckedIds() {
   return [...$('bondPersonPanel').querySelectorAll('input[type="checkbox"]:checked')]
-    .map((checkbox) => Number(checkbox.value));
+    .flatMap((checkbox) => (checkbox.dataset.ids || checkbox.value).split(',').map(Number));
 }
 
-function updateBondToggle() {
-  const count = bondCheckedIds().length;
-  $('bondPersonToggle').textContent = count ? '已选 ' + count + ' 人' : '选择人物';
-}
+function updateBondToggle() {}
 
-function setBondPanel(open) {
-  $('bondPersonPanel').hidden = !open;
-  $('bondPersonToggle').setAttribute('aria-expanded', String(open));
+function setBondPanel() {
+  $('bondPersonPanel').hidden = false;
 }
 
 function renderBondMembers() {
@@ -500,13 +511,14 @@ function renderBondMembers() {
   panel.innerHTML = '';
   bondMembers.forEach((bond) => {
     const item = document.createElement('label');
-    item.className = 'ms-item';
+    item.className = 'bond-item';
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
-    checkbox.value = String(bond.id);
+    checkbox.value = String(bond.ids[0]);
+    checkbox.dataset.ids = bond.ids.join(',');
     checkbox.addEventListener('change', updateBondToggle);
     const name = document.createElement('span');
-    name.textContent = '角色 ' + bond.id;
+    name.textContent = bond.name;
     const level = document.createElement('em');
     level.textContent = 'Lv' + bond.level;
     item.appendChild(checkbox);
@@ -536,10 +548,26 @@ async function loadBonds() {
       $('bondDesc').textContent = '该存档没有找到好感数据';
       return;
     }
-    bondMembers.push(...data.bonds);
+    await getCharacterNames();
+    const names = characterNames || {};
+    const groups = new Map();
+    data.bonds.forEach((bond) => {
+      if (HIDDEN_BOND_IDS.has(Number(bond.id))) return;
+      const name = bond.name || names[String(bond.id)] || ('角色 ' + bond.id);
+      if (!groups.has(name)) groups.set(name, { name, ids: [], level: bond.level });
+      const group = groups.get(name);
+      group.ids.push(bond.id);
+      group.level = Math.max(group.level, bond.level);
+    });
+    bondMembers.push(...groups.values());
     renderBondMembers();
+    if (!bondMembers.length) {
+      tag.textContent = '没有可编辑角色';
+      $('bondDesc').textContent = '该存档只有占位角色';
+      return;
+    }
     tag.textContent = 'Mystia#' + state.slot;
-    $('bondDesc').textContent = '已读取 ' + data.bonds.length + ' 个角色 选人物和等级后写入 角色名映射待补';
+    $('bondDesc').textContent = '已读取 ' + bondMembers.length + ' 个角色 选人物和等级后写入';
   } catch (e) {
     renderBondMembers();
     setBondPanel(false);
@@ -586,13 +614,14 @@ $('btnRefresh').addEventListener('click', async () => {
   }
 });
 
-$('bondPersonToggle').addEventListener('click', () => {
-  setBondPanel($('bondPersonPanel').hidden);
+$('btnBondAll').addEventListener('click', () => {
+  document.querySelectorAll('#bondPersonPanel input[type="checkbox"]').forEach((checkbox) => { checkbox.checked = true; });
+  updateBondToggle();
 });
 
-document.addEventListener('click', (e) => {
-  if (e.target.closest('.multiselect')) return;
-  if (!$('bondPersonPanel').hidden) setBondPanel(false);
+$('btnBondNone').addEventListener('click', () => {
+  document.querySelectorAll('#bondPersonPanel input[type="checkbox"]').forEach((checkbox) => { checkbox.checked = false; });
+  updateBondToggle();
 });
 
 $('btnBondApply').addEventListener('click', async () => {
@@ -605,8 +634,9 @@ $('btnBondApply').addEventListener('click', async () => {
     toast('请先选择人物', 'err');
     return;
   }
+  const checked = document.querySelectorAll('#bondPersonPanel input[type="checkbox"]:checked').length;
   const level = Number.parseInt($('bondLevel').value, 10);
-  const ok = await confirmBox('修改好感度', '会把选中的 ' + ids.length + ' 个角色好感度改为等级 ' + level + ' 是否继续');
+  const ok = await confirmBox('修改好感度', '会把选中的 ' + checked + ' 个角色好感度改为等级 ' + level + ' 是否继续');
   if (!ok) return;
   const button = $('btnBondApply');
   button.disabled = true;
