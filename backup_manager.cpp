@@ -711,3 +711,33 @@ bool Backup_Restore(const char* savePath, int id, std::string* error)
     if (!WriteAtomic(savePath, data, error)) return false;
     return SaveIndex(index, error);
 }
+
+bool Backup_Snapshot(const char* savePath, std::string* error)
+{
+    if (!savePath || !FileExists(savePath)) {
+        if (error) *error = "当前没有可备份的存档";
+        return false;
+    }
+    BackupIndex index;
+    if (!EnsureIndex(savePath, index, true, error)) return false;
+    Bytes current;
+    if (!ReadAll(savePath, current, error)) return false;
+    std::string sha;
+    if (!Sha256(current, sha, error)) return false;
+    if (!index.entries.empty() && index.entries.back().sha == sha) return true;
+
+    int nextId = index.entries.empty() ? 1 : index.entries.back().id + 1;
+    char name[64] = {0};
+    _snprintf(name, sizeof(name) - 1, "snap_%06d.full", nextId);
+    if (!WriteAll(index.dir + "\\" + name, current, error)) return false;
+
+    IndexEntry entry;
+    entry.id = nextId;
+    entry.time = NowString();
+    entry.kind = "full";
+    entry.file = name;
+    entry.size = (unsigned long long)current.size();
+    entry.sha = sha;
+    index.entries.push_back(entry);
+    return SaveIndex(index, error);
+}

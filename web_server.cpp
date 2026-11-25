@@ -13,6 +13,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <cctype>
 #include <cstdio>
 #include <mutex>
 #include <string>
@@ -775,13 +776,54 @@ std::string HandleApi(const std::string& rawPath, const std::string& body)
     if (path == "/api/special")
     {
         std::string key = GetStringField(body, "key");
-        if (key.empty()) return Result(-1, "缺少功能 key");
+        if (key.empty() || key.size() > 64) return Result(-1, "功能 key 不合法");
+        for (size_t i = 0; i < key.size(); i++)
+        {
+            char ch = key[i];
+            if (!((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '_'))
+                return Result(-1, "功能 key 不合法");
+        }
+
+        std::string text = GetStringField(body, "text");
+        if (text.size() > 128) return Result(-1, "文本过长");
+        for (size_t i = 0; i < text.size(); i++)
+        {
+            unsigned char ch = (unsigned char)text[i];
+            if (ch < 32 || ch == 127) return Result(-1, "文本包含非法字符");
+        }
+
+        static const char* kDangerous[] = {
+            "day_next_day", "day_set_days", "day_add_days", "day_warp_hours", "day_warp_actions",
+            "day_clear_ing", "day_clear_bev", "day_clear_items", "day_start_missions", "day_finish_all",
+            "day_goto_kourindou", "day_restock_kourindou", "day_invite_tewi", "day_money_box",
+            "day_multi_partner", "day_max_partner", "day_roguelike",
+            "day_challenge_lv1", "day_challenge_lv2", "day_challenge_final",
+            "day_weird_cooking", "day_festival_music", "day_festival_cooking",
+            "global_goto_main", "global_goto_empty", "main_test_result"
+        };
+        bool dangerous = key.compare(0, 6, "night_") == 0 || key.compare(0, 4, "map_") == 0;
+        for (size_t i = 0; i < sizeof(kDangerous) / sizeof(kDangerous[0]) && !dangerous; i++)
+        {
+            if (key == kDangerous[i]) dangerous = true;
+        }
+
+        int slot = GetIntField(body, "slot", -1);
+        if (dangerous)
+        {
+            if (slot < 0) return Result(-1, "危险操作需要先选择存档");
+            std::string file;
+            if (!SlotPath(slot, file)) return Result(-1, "存档不存在");
+            std::string backupError;
+            if (!Backup_Snapshot(file.c_str(), &backupError))
+                return Result(-12, "自动快照失败，已阻止操作: " + backupError);
+        }
+
         int value = GetIntField(body, "value", 0);
         int value2 = GetIntField(body, "value2", 0);
-        std::string text = GetStringField(body, "text");
-        char command[768] = {0};
-        _snprintf(command, sizeof(command) - 1, "SPECIAL %s %d %d %s",
-                  key.c_str(), value, value2, text.c_str());
+        std::string command = "SPECIAL " + key + " " + std::to_string(value) + " " + std::to_string(value2);
+        if (!text.empty()) command += " " + text;
+        if (command.size() > 512) return Result(-1, "命令过长");
+
         std::string reply;
         std::string error;
         if (!TrainerClient_Command(command, &reply, &error)) return Result(-1, error);
@@ -838,10 +880,93 @@ struct Request
     std::string method;
     std::string target;
     std::string body;
+    std::string host;
+    std::string origin;
     bool isJson;
 
     Request() : isJson(false) {}
 };
+
+std::string TrimHeaderValue(const std::string& value)
+{
+    size_t start = 0;
+    size_t end = value.size();
+    while (start < end && (value[start] == ' ' || value[start] == '\t')) start++;
+    while (end > start && (value[end - 1] == ' ' || value[end - 1] == '\t' || value[end - 1] == '\r')) end--;
+    return value.substr(start, end - start);
+}
+
+std::string HeaderValue(const std::string& head, const std::string& name)
+{
+    size_t start = 0;
+    while (start < head.size())
+    {
+        size_t end = head.find("\r\n", start);
+        if (end == std::string::npos) end = head.size();
+        std::string line = head.substr(start, end - start);
+        size_t colon = line.find(':');
+        if (colon != std::string::npos)
+        {
+            std::string key = line.substr(0, colon);
+            for (size_t i = 0; i < key.size(); i++) key[i] = (char)tolower((unsigned char)key[i]);
+            if (key == name) return TrimHeaderValue(line.substr(colon + 1));
+        }
+        start = end + 2;
+    }
+    return std::string();
+}
+
+bool IsAllDigits(const std::string& value)
+{
+    if (value.empty()) return false;
+    for (size_t i = 0; i < value.size(); i++)
+    {
+        if (value[i] < '0' || value[i] > '9') return false;
+    }
+    return true;
+}
+
+bool IsLocalHostName(const std::string& value)
+{
+    std::string host = TrimHeaderValue(value);
+    for (size_t i = 0; i < host.size(); i++) host[i] = (char)tolower((unsigned char)host[i]);
+    if (host.empty()) return false;
+    if (host[0] == '[')
+    {
+        size_t end = host.find(']');
+        if (end == std::string::npos) return false;
+        std::string port = host.substr(end + 1);
+        if (!port.empty() && (port[0] != ':' || !IsAllDigits(port.substr(1)))) return false;
+        host = host.substr(1, end - 1);
+    }
+    else
+    {
+        size_t first = host.find(':');
+        size_t last = host.rfind(':');
+        if (first != std::string::npos && first == last)
+        {
+            if (!IsAllDigits(host.substr(first + 1))) return false;
+            host = host.substr(0, first);
+        }
+        else if (first != std::string::npos && host != "::1")
+        {
+            return false;
+        }
+    }
+    return host == "127.0.0.1" || host == "localhost" || host == "::1";
+}
+
+bool IsLocalOrigin(const std::string& value)
+{
+    std::string origin = TrimHeaderValue(value);
+    for (size_t i = 0; i < origin.size(); i++) origin[i] = (char)tolower((unsigned char)origin[i]);
+    size_t scheme = origin.find("://");
+    if (scheme == std::string::npos) return false;
+    std::string host = origin.substr(scheme + 3);
+    size_t slash = host.find('/');
+    if (slash != std::string::npos) host = host.substr(0, slash);
+    return IsLocalHostName(host);
+}
 
 bool RecvRequest(SOCKET c, Request& req)
 {
@@ -885,6 +1010,8 @@ bool RecvRequest(SOCKET c, Request& req)
     if (sp1 == std::string::npos || sp2 == std::string::npos) return false;
     req.method = head.substr(0, sp1);
     req.target = head.substr(sp1 + 1, sp2 - sp1 - 1);
+    req.host = HeaderValue(head, "host");
+    req.origin = HeaderValue(head, "origin");
     size_t bodyStart = headerEnd + 4;
     req.body = buf.size() > bodyStart ? buf.substr(bodyStart) : std::string();
     return true;
@@ -908,6 +1035,7 @@ void SendResponse(SOCKET c, int status, const std::string& type, const std::stri
     const char* reason = "Not Found";
     if (status == 200) reason = "OK";
     else if (status == 400) reason = "Bad Request";
+    else if (status == 403) reason = "Forbidden";
     else if (status == 413) reason = "Payload Too Large";
     else if (status == 415) reason = "Unsupported Media Type";
     std::string head = "HTTP/1.1 " + std::to_string(status) + " " + reason + "\r\n";
@@ -923,7 +1051,12 @@ void HandleClient(SOCKET c)
     Request req;
     if (RecvRequest(c, req))
     {
-        if (req.method == "POST" && !req.isJson)
+        if (!IsLocalHostName(req.host) || (!req.origin.empty() && !IsLocalOrigin(req.origin)))
+        {
+            SendResponse(c, 403, "application/json; charset=utf-8",
+                         "{\"ok\":false,\"code\":-403,\"msg\":\"Host 或 Origin 校验失败\"}");
+        }
+        else if (req.method == "POST" && !req.isJson)
         {
             SendResponse(c, 415, "application/json; charset=utf-8",
                          "{\"ok\":false,\"code\":-415,\"msg\":\"Content-Type 必须是 application/json\"}");

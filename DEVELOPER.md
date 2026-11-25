@@ -192,29 +192,73 @@ RunTimeScheduler.HaveMissionFinished(string)  -> finishedMissions
 
 跨显示器 DPI 变化会在 `OnDpiChanged` 里重算 bounds 缩放交给 WebView2 自动检测
 
-## 发布
+## 特殊功能 special_actions
 
-推 `v*` tag 会自动构建并创建 Release
-
-Actions 里手动 dispatch 只构建并上传 artifact 不发 Release 适合先验证
-
-产物
+特殊功能页是实验性入口 调用链
 
 ```text
-IzakayaCheater-<tag>-win64.zip          便携包 exe web 加载器 加三个运行库
-IzakayaCheater-Setup-<版本>.exe          Inno Setup 安装包
+web/app.js SPECIAL_GROUPS
+  -> POST /api/special
+  -> IPC SPECIAL <key> <value> <value2> <text>
+  -> Game_Special
+  -> MainThread_Run
+  -> Special_Call
+  -> il2cpp 按命名空间 类名 方法名 参数个数解析
+  -> 游戏主线程调用
 ```
 
-CI 用 MSYS2 UCRT64 加官方 wxWidgets 3.2.11 gcc1420UCRT x64 预编译静态库
-静态链接 分发包不需要 wx 自己的 DLL
-
-发版前三处版本号要一致
+相关文件
 
 ```text
-CMakeLists.txt   project(IzakayaCheater VERSION x.y.z)
-installer/installer.iss   #define MyAppVersion "x.y.z"
-git tag          vx.y.z
+core/special_actions.h/cpp   动作表 解析 调用 崩溃隔离
+core/game_api.cpp            Game_Special 主线程封装
+core/ipc_server.cpp          SPECIAL 命令解析
+web_server.cpp               /api/special Host Origin 校验 危险动作快照
+web/index.html               特殊功能页面和实验性提示
+web/app.js                   SPECIAL_GROUPS 渲染和调用
 ```
+
+动作表每条包含
+
+```text
+key         前端和 IPC 使用的稳定键名
+ns cls      游戏命名空间和类名
+method      方法名
+argc        参数个数
+arg         参数类型 none int bool string int_fixed bool_fixed string_fixed
+fixedInt    第二个固定整数参数
+fixedText   固定字符串参数
+```
+
+新增动作时同时改两处
+
+```text
+core/special_actions.cpp kActions
+web/app.js SPECIAL_GROUPS
+```
+
+两边的 key 必须完全一致 方法名和 argc 以本地 interop 元数据为准
+
+安全约束
+
+```text
+/api/special 只接受本机 Host 和 Origin
+key 只允许小写字母 数字 下划线
+text 不允许控制字符 最长 128 字节
+危险动作 夜间动作 地图动作会先对当前选中存档做 Backup_Snapshot 全量快照
+快照失败直接阻止动作
+```
+
+崩溃隔离
+
+```text
+MinGW 不支持 MSVC __try
+使用 AddVectoredExceptionHandler 加 setjmp/longjmp
+守卫帧只允许 POD CallSpec 不允许出现 std::string 等非平凡析构对象
+```
+
+上游 DEV Console 许可证是 All Rights Reserved 只参考行为 不复制源码和成就 ID
+成就列表运行时从 DataBaseAchievement.get_achievementsId 读取
 
 ## 署名
 

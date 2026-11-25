@@ -4,9 +4,9 @@ const AUTO_ATTACH_KEY = 'izakaya.autoAttach';
 
 function readAutoAttach() {
   try {
-    return localStorage.getItem(AUTO_ATTACH_KEY) !== '0';
+    return localStorage.getItem(AUTO_ATTACH_KEY) === '1';
   } catch {
-    return true;
+    return false;
   }
 }
 
@@ -530,41 +530,41 @@ async function loadTrainerStatus() {
     const ready = moneyReady || obtainReady;
 
     const lamp = $('procLamp');
+    const available = Boolean(st.game && attached && ready);
+    if (!st.game) lamp.className = 'status-lamp off';
+    else if (!attached) lamp.className = 'status-lamp detected';
+    else if (!ready) lamp.className = 'status-lamp detected';
+    else lamp.className = 'status-lamp live';
+
+    $('procTag').hidden = false;
+    $('procDesc').hidden = false;
     if (!st.game) {
-      lamp.className = 'status-lamp off';
-      procTag.textContent = '游戏未启动';
-      procDesc.textContent = '未检测到游戏进程';
+      $('procTag').textContent = '游戏未启动';
+      $('procDesc').textContent = '未检测到游戏进程';
     } else if (!attached) {
-      lamp.className = 'status-lamp detected';
-      procTag.textContent = '游戏运行中';
-      procDesc.textContent = '已检测到游戏进程 未注入';
+      $('procTag').textContent = '游戏运行中';
+      $('procDesc').textContent = '已检测到游戏进程 未注入';
     } else if (!ready) {
-      lamp.className = 'status-lamp detected';
-      procTag.textContent = '已注入 未就绪';
-      procDesc.textContent = '部分功能未就绪';
+      $('procTag').textContent = '已注入 未就绪';
+      $('procDesc').textContent = '部分功能未就绪';
     } else {
-      lamp.className = 'status-lamp live';
-      procTag.textContent = '已注入';
-      procDesc.textContent = '常用功能可用';
+      $('procTag').textContent = '已注入';
+      $('procDesc').textContent = '进程状态正常';
     }
 
-    if (!st.game) {
-      tag.textContent = '未检测到游戏';
-    } else if (!attached) {
-      tag.textContent = '未连接服务';
-    } else if (!ready) {
-      tag.textContent = '已连接服务 未就绪';
-    } else {
-      tag.textContent = '已连接服务';
-      if (moneyReady) $('liveMoney').placeholder = '当前金钱 ' + st.money;
-    }
+    $('liveTag').textContent = available ? '服务可用' : '不可用';
+    $('liveTag').hidden = false;
+    if (available && moneyReady) $('liveMoney').placeholder = '当前金钱 ' + st.money;
 
     setLiveReady(moneyReady, obtainReady);
   } catch (e) {
-    $('liveTag').textContent = '状态读取失败';
+    $('liveTag').textContent = '不可用';
+    $('liveTag').hidden = false;
     $('procLamp').className = 'status-lamp off';
     $('procTag').textContent = '检测失败';
+    $('procTag').hidden = false;
     $('procDesc').textContent = e.message;
+    $('procDesc').hidden = false;
     setLiveReady(false, false);
   } finally {
     liveStatusBusy = false;
@@ -1264,7 +1264,7 @@ async function runSpecialAction(action, row) {
 
   state.specialBusy = true;
   try {
-    const res = await api('/api/special', { key: action.key, value, value2: 0, text });
+    const res = await api('/api/special', { key: action.key, value, value2: 0, text, slot: state.slot });
     if (!res.ok) throw new Error(res.msg || '执行失败');
     toast('已执行 ' + action.label, 'ok');
   } catch (e) {

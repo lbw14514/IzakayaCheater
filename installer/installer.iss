@@ -1,5 +1,5 @@
 #define MyAppName "东方夜雀食堂修改器"
-#define MyAppVersion "0.6.1"
+#define MyAppVersion "0.6.2"
 #define MyAppPublisher "lbw14514"
 #define MyAppURL "https://github.com/lbw14514/IzakayaCheater"
 #define MyAppExeName "IzakayaCheater.exe"

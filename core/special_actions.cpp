@@ -33,15 +33,72 @@ void EnsureGuard()
     (void)installed;
 }
 
-template <typename Fn>
-bool SafeInvoke(Fn fn, std::string* error)
+enum CallOp
+{
+    OP_VOID,
+    OP_INT,
+    OP_BOOL,
+    OP_STRING,
+    OP_INT_INT,
+    OP_BOOL_FIXED,
+    OP_GET_OBJECT,
+    OP_GET_INT,
+    OP_GET_ITEM
+};
+
+struct CallSpec
+{
+    void* fn;
+    CallOp op;
+    int i1;
+    int i2;
+    void* object;
+    void* out;
+};
+
+void InvokeSpec(const CallSpec& spec)
+{
+    switch (spec.op) {
+        case OP_VOID:
+            ((void(*)())spec.fn)();
+            break;
+        case OP_INT:
+            ((void(*)(int))spec.fn)(spec.i1);
+            break;
+        case OP_BOOL:
+            ((void(*)(bool))spec.fn)(spec.i1 != 0);
+            break;
+        case OP_STRING:
+            ((void(*)(void*))spec.fn)(spec.object);
+            break;
+        case OP_INT_INT:
+            ((void(*)(int, int))spec.fn)(spec.i1, spec.i2);
+            break;
+        case OP_BOOL_FIXED:
+            ((void(*)(bool))spec.fn)(spec.i2 != 0);
+            break;
+        case OP_GET_OBJECT:
+            *(void**)spec.out = ((void*(*)())spec.fn)();
+            break;
+        case OP_GET_INT:
+            *(int*)spec.out = ((int(*)(void*))spec.fn)(spec.object);
+            break;
+        case OP_GET_ITEM:
+            *(void**)spec.out = ((void*(*)(void*, int))spec.fn)(spec.object, spec.i1);
+            break;
+    }
+}
+
+// MinGW 没有 MSVC __try；这里用 VEH + longjmp 隔离。
+// 守卫帧里只允许 POD，不允许出现 std::string 等非平凡析构对象。
+bool SafeCall(const CallSpec& spec, std::string* error)
 {
     EnsureGuard();
     jmp_buf buffer;
     jmp_buf* previous = g_guard;
     g_guard = &buffer;
     if (setjmp(buffer) == 0) {
-        fn();
+        InvokeSpec(spec);
         g_guard = previous;
         return true;
     }
@@ -195,7 +252,8 @@ bool UnlockAllAchievements(std::string* error)
     }
 
     void* list = NULL;
-    if (!SafeInvoke([&]() { list = ((void*(*)())getIdsPtr)(); }, error)) return false;
+    CallSpec getListSpec = {getIdsPtr, OP_GET_OBJECT, 0, 0, NULL, &list};
+    if (!SafeCall(getListSpec, error)) return false;
     if (!list) {
         if (error) *error = "成就列表为空";
         return false;
@@ -216,23 +274,29 @@ bool UnlockAllAchievements(std::string* error)
     }
 
     int count = 0;
-    if (!SafeInvoke([&]() { count = ((int(*)(void*))countPtr)(list); }, error)) return false;
+    CallSpec countSpec = {countPtr, OP_GET_INT, 0, 0, list, &count};
+    if (!SafeCall(countSpec, error)) return false;
     int unlocked = 0;
     for (int i = 0; i < count; i++) {
         void* idObject = NULL;
-        if (!SafeInvoke([&]() { idObject = ((void*(*)(void*, int))itemPtr)(list, i); }, error)) continue;
+        CallSpec itemSpec = {itemPtr, OP_GET_ITEM, i, 0, list, &idObject};
+        if (!SafeCall(itemSpec, error)) continue;
         std::string id = Il2Cpp_StringToUtf8(idObject);
         if (id.empty()) continue;
         void* idString = Il2Cpp_StringNew(id.c_str());
         if (!idString) continue;
-        if (SafeInvoke([&]() { ((void(*)(void*))finishPtr)(idString); }, NULL)) unlocked++;
+        CallSpec finishSpec = {finishPtr, OP_STRING, 0, 0, idString, NULL};
+        if (SafeCall(finishSpec, NULL)) unlocked++;
     }
 
     void* check = Il2Cpp_Method(kGameImage, "GameData.RunTime.Common.AchievementSystem",
                                 "DataBaseAchievement", "CheckAllAchievement", 0);
     if (check && Il2Cpp_MethodIsStatic(check)) {
         void* checkPtr = Il2Cpp_MethodPointer(check);
-        if (checkPtr) SafeInvoke([&]() { ((void(*)())checkPtr)(); }, NULL);
+        if (checkPtr) {
+            CallSpec checkSpec = {checkPtr, OP_VOID, 0, 0, NULL, NULL};
+            SafeCall(checkSpec, NULL);
+        }
     }
 
     CoreLog("achievement unlock all: %d/%d", unlocked, count);
@@ -281,31 +345,19 @@ bool Special_Call(const std::string& key, int value, int value2, const std::stri
         }
     }
 
-    bool ok = SafeInvoke([&]() {
-        switch (def->arg) {
-            case A_NONE:
-                ((void(*)())fn)();
-                break;
-            case A_INT:
-                ((void(*)(int))fn)(value);
-                break;
-            case A_BOOL:
-                ((void(*)(bool))fn)(value != 0);
-                break;
-            case A_STRING:
-            case A_STRING_FIXED:
-                ((void(*)(void*))fn)(str);
-                break;
-            case A_INT_FIXED:
-                ((void(*)(int, int))fn)(value, def->fixedInt);
-                break;
-            case A_BOOL_FIXED:
-                ((void(*)(bool))fn)(def->fixedInt != 0);
-                break;
-            default:
-                break;
-        }
-    }, error);
+    CallSpec spec = {fn, OP_VOID, value, def->fixedInt, NULL, NULL};
+    switch (def->arg) {
+        case A_NONE: spec.op = OP_VOID; break;
+        case A_INT: spec.op = OP_INT; break;
+        case A_BOOL: spec.op = OP_BOOL; break;
+        case A_STRING:
+        case A_STRING_FIXED: spec.op = OP_STRING; spec.object = str; break;
+        case A_INT_FIXED: spec.op = OP_INT_INT; break;
+        case A_BOOL_FIXED: spec.op = OP_BOOL_FIXED; break;
+        default:
+            if (error) *error = "未知参数类型";
+            return false;
+    }
     (void)value2;
-    return ok;
+    return SafeCall(spec, error);
 }
