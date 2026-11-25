@@ -1,5 +1,6 @@
 #include "web_server.h"
 #include "save_editor.h"
+#include "trainer_client.h"
 #include "config.h"
 
 #include <winsock2.h>
@@ -8,9 +9,11 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <cstdio>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -18,6 +21,7 @@
 namespace
 {
 std::atomic<bool> g_running(false);
+std::mutex g_apiLock;
 SOCKET g_listen = INVALID_SOCKET;
 std::thread g_acceptThread;
 int g_port = 0;
@@ -122,7 +126,62 @@ int GetIntField(const std::string& body, const std::string& key, int def)
     if (p == std::string::npos) return def;
     p = body.find(':', p + needle.size());
     if (p == std::string::npos) return def;
-    return atoi(body.c_str() + p + 1);
+    const char* s = body.c_str() + p + 1;
+    char* end = NULL;
+    long value = strtol(s, &end, 10);
+    if (end == s) return def;
+    return (int)value;
+}
+
+long long GetInt64Field(const std::string& body, const std::string& key, long long def)
+{
+    std::string needle = "\"" + key + "\"";
+    size_t p = body.find(needle);
+    if (p == std::string::npos) return def;
+    p = body.find(':', p + needle.size());
+    if (p == std::string::npos) return def;
+    const char* s = body.c_str() + p + 1;
+    char* end = NULL;
+    long long value = strtoll(s, &end, 10);
+    if (end == s) return def;
+    return value;
+}
+
+double GetFloatField(const std::string& body, const std::string& key, double def)
+{
+    std::string needle = "\"" + key + "\"";
+    size_t p = body.find(needle);
+    if (p == std::string::npos) return def;
+    p = body.find(':', p + needle.size());
+    if (p == std::string::npos) return def;
+    const char* s = body.c_str() + p + 1;
+    char* end = NULL;
+    double value = strtod(s, &end);
+    if (end == s || !std::isfinite(value)) return def;
+    return value;
+}
+
+void GetIntArrayField(const std::string& body, const std::string& key, std::vector<int>& out)
+{
+    std::string needle = "\"" + key + "\"";
+    size_t p = body.find(needle);
+    if (p == std::string::npos) return;
+    p = body.find('[', p + needle.size());
+    if (p == std::string::npos) return;
+    size_t end = body.find(']', p);
+    if (end == std::string::npos) return;
+
+    const char* s = body.c_str() + p + 1;
+    const char* limit = body.c_str() + end;
+    while (s < limit) {
+        while (s < limit && (*s == ' ' || *s == ',' || *s == '\n' || *s == '\r' || *s == '\t')) s++;
+        if (s >= limit) break;
+        char* next = NULL;
+        long value = strtol(s, &next, 10);
+        if (next == s) break;
+        out.push_back((int)value);
+        s = next;
+    }
 }
 
 std::string GetStringField(const std::string& body, const std::string& key)
@@ -146,7 +205,11 @@ int QueryInt(const std::string& path, const std::string& key, int def)
     std::string needle = key + "=";
     size_t p = path.find(needle, q);
     if (p == std::string::npos) return def;
-    return atoi(path.c_str() + p + needle.size());
+    const char* s = path.c_str() + p + needle.size();
+    char* end = NULL;
+    long value = strtol(s, &end, 10);
+    if (end == s) return def;
+    return (int)value;
 }
 
 std::string ErrorText(int code)
@@ -276,8 +339,101 @@ std::string MetaJson()
     return body;
 }
 
+std::string CommandError(const std::string& reply)
+{
+    if (reply.compare(0, 3, "ERR") == 0) return reply.size() > 4 ? reply.substr(4) : reply;
+    return reply;
+}
+
+std::string TrainerStatusJson()
+{
+    TrainerStatus st;
+    bool ok = TrainerClient_Status(&st);
+    std::string body = "{\"ok\":";
+    body += ok ? "true" : "false";
+    body += ",\"game\":";
+    body += st.gameRunning ? "true" : "false";
+    body += ",\"attached\":";
+    body += st.attached ? "true" : "false";
+    body += ",\"resolved\":";
+    body += st.resolved ? "true" : "false";
+    body += ",\"moneyReady\":";
+    body += st.moneyReady ? "true" : "false";
+    body += ",\"speedReady\":";
+    body += st.speedReady ? "true" : "false";
+    body += ",\"money\":" + std::to_string(st.money);
+    char speed[64] = {0};
+    _snprintf(speed, sizeof(speed) - 1, "%.4f", st.timeScale);
+    body += ",\"timeScale\":" + std::string(speed);
+    body += ",\"error\":\"" + JsonEscape(st.error) + "\"}";
+    return body;
+}
+
+bool IsElevated()
+{
+    HANDLE token = NULL;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) return false;
+    TOKEN_ELEVATION elevation;
+    DWORD size = sizeof(elevation);
+    bool elevated = GetTokenInformation(token, TokenElevation, &elevation, size, &size) != FALSE &&
+                    elevation.TokenIsElevated != 0;
+    CloseHandle(token);
+    return elevated;
+}
+
+std::string SelfCheckJson()
+{
+    std::vector<std::string> lines;
+    std::string exeDir = ExeDir();
+    lines.push_back("程序目录 " + exeDir);
+    lines.push_back(std::string("核心 DLL ") +
+        (GetFileAttributesA((exeDir + "\\IzakayaCheatCore.dll").c_str()) != INVALID_FILE_ATTRIBUTES ? "已找到" : "缺失"));
+    lines.push_back(std::string("WebView2Loader ") +
+        (GetFileAttributesA((exeDir + "\\WebView2Loader.dll").c_str()) != INVALID_FILE_ATTRIBUTES ? "已找到" : "缺失"));
+    lines.push_back(std::string("web 资源 ") +
+        (GetFileAttributesA((g_root + "\\index.html").c_str()) != INVALID_FILE_ATTRIBUTES ? "已找到" : "缺失"));
+    lines.push_back(std::string("管理员权限 ") + (IsElevated() ? "是" : "否"));
+
+    char folder[MAX_PATH] = {0};
+    if (SaveEditor_GetSaveFolder(folder, sizeof(folder)) == 0) {
+        lines.push_back(std::string("存档目录 ") + folder);
+        int slots[64] = {0};
+        int count = 0;
+        if (SaveEditor_ScanSaves(slots, &count, 64) == 0)
+            lines.push_back("存档数量 " + std::to_string(count));
+        else
+            lines.push_back("存档数量 读取失败");
+    } else {
+        lines.push_back("存档目录 读取失败");
+    }
+
+    TrainerStatus st;
+    TrainerClient_Status(&st);
+    lines.push_back(std::string("游戏进程 ") + (st.gameRunning ? "已检测" : "未检测"));
+    lines.push_back(std::string("核心连接 ") + (st.attached ? "已附加" : "未附加"));
+
+    if (st.attached) {
+        std::string reply;
+        std::string error;
+        if (TrainerClient_Command("SELFCHECK", &reply, &error))
+            lines.push_back("核心自检 " + reply);
+        else
+            lines.push_back("核心自检 " + error);
+    }
+    lines.push_back("Obtain All 数量需要在游戏内逐项实测");
+
+    std::string body = "{\"ok\":true,\"lines\":[";
+    for (size_t i = 0; i < lines.size(); i++) {
+        if (i) body += ",";
+        body += "\"" + JsonEscape(lines[i]) + "\"";
+    }
+    body += "]}";
+    return body;
+}
+
 std::string HandleApi(const std::string& rawPath, const std::string& body)
 {
+    std::lock_guard<std::mutex> guard(g_apiLock);
     std::string path = rawPath;
     size_t q = path.find('?');
     if (q != std::string::npos) path = path.substr(0, q);
@@ -336,6 +492,48 @@ std::string HandleApi(const std::string& rawPath, const std::string& body)
         return Result(ret);
     }
 
+    if (path == "/api/bonds/list")
+    {
+        int slot = QueryInt(rawPath, "slot", -1);
+        if (slot < 0) return Result(-1);
+        std::string file;
+        if (!SlotPath(slot, file)) return Result(-1);
+
+        int ids[256] = {0};
+        int levels[256] = {0};
+        int total = SaveEditor_ListBonds(file.c_str(), ids, levels, 256);
+        if (total < 0) return Result(total);
+
+        std::string body = "{\"ok\":true,\"slot\":" + std::to_string(slot) + ",\"bonds\":[";
+        int count = total < 256 ? total : 256;
+        for (int i = 0; i < count; i++)
+        {
+            if (i) body += ",";
+            body += "{\"id\":" + std::to_string(ids[i]) + ",\"level\":" + std::to_string(levels[i]) + "}";
+        }
+        body += "]}";
+        return body;
+    }
+
+    if (path == "/api/bonds/set")
+    {
+        int slot = GetIntField(body, "slot", -1);
+        int level = GetIntField(body, "level", 5);
+        if (slot < 0 || level < 0 || level > 5) return Result(-1, "角色等级参数不正确");
+        std::vector<int> ids;
+        GetIntArrayField(body, "ids", ids);
+        if (ids.empty()) return Result(-1, "没有选中角色");
+        std::sort(ids.begin(), ids.end());
+        ids.erase(std::unique(ids.begin(), ids.end()), ids.end());
+        if (ids.size() > 256) return Result(-1, "一次最多写入 256 个角色");
+        std::string file;
+        if (!SlotPath(slot, file)) return Result(-1);
+        int ret = SaveEditor_SetBondLevels(file.c_str(), ids.data(), (int)ids.size(), level);
+        if (ret == 0) return Result(-1, "没有匹配到角色");
+        if (ret < 0) return Result(ret);
+        return Result(0, "完成（已写入 " + std::to_string(ret) + " 个角色）");
+    }
+
     if (path == "/api/bonds")
     {
         int slot = GetIntField(body, "slot", -1);
@@ -366,6 +564,73 @@ std::string HandleApi(const std::string& rawPath, const std::string& body)
         int slot = GetIntField(body, "slot", -1);
         if (slot < 0) return Result(-1);
         return Result(SaveEditor_AddInvitationsToSlot(slot));
+    }
+
+    if (path == "/api/trainer/status")
+    {
+        return TrainerStatusJson();
+    }
+
+    if (path == "/api/selfcheck")
+    {
+        return SelfCheckJson();
+    }
+
+    if (path == "/api/trainer/attach")
+    {
+        std::string error;
+        if (!TrainerClient_Attach(&error)) return Result(-1, error);
+        return Result(0, "已附加游戏");
+    }
+
+    if (path == "/api/trainer/detach")
+    {
+        TrainerClient_Detach();
+        return Result(0, "已卸下");
+    }
+
+    if (path == "/api/trainer/money")
+    {
+        long long value = GetInt64Field(body, "value", -1);
+        if (value < 0) return Result(-1, "金额不正确");
+        std::string reply;
+        std::string error;
+        if (!TrainerClient_Command("MONEY SET " + std::to_string(value), &reply, &error)) return Result(-1, error);
+        if (reply.compare(0, 2, "OK") != 0) return Result(-1, CommandError(reply));
+        return Result(0, "实时金钱已写入 " + std::to_string(value));
+    }
+
+    if (path == "/api/trainer/speed")
+    {
+        double value = GetFloatField(body, "value", -1.0);
+        if (value < 0.1 || value > 10.0) return Result(-1, "速度范围 0.1 到 10");
+        char command[64] = {0};
+        _snprintf(command, sizeof(command) - 1, "SPEED SET %.4f", value);
+        std::string reply;
+        std::string error;
+        if (!TrainerClient_Command(command, &reply, &error)) return Result(-1, error);
+        if (reply.compare(0, 2, "OK") != 0) return Result(-1, CommandError(reply));
+        return Result(0, "游戏速度已设置");
+    }
+
+    if (path == "/api/trainer/obtain")
+    {
+        std::string category = GetStringField(body, "category");
+        static const char* kAllowed[] = {
+            "badges", "clothes", "records", "fishing", "partners", "decorations",
+            "ingredients", "foods", "beverages", "cookers", "recipes", "izakayas"
+        };
+        bool allowed = false;
+        for (size_t i = 0; i < sizeof(kAllowed) / sizeof(kAllowed[0]); i++)
+        {
+            if (category == kAllowed[i]) allowed = true;
+        }
+        if (!allowed) return Result(-1, "未知项目");
+        std::string reply;
+        std::string error;
+        if (!TrainerClient_Command("OBTAIN " + category, &reply, &error)) return Result(-1, error);
+        if (reply.compare(0, 2, "OK") != 0) return Result(-1, CommandError(reply));
+        return Result(0, "已执行");
     }
 
     return "{\"ok\":false,\"code\":-404,\"msg\":\"unknown api\"}";
@@ -417,6 +682,9 @@ struct Request
     std::string method;
     std::string target;
     std::string body;
+    bool isJson;
+
+    Request() : isJson(false) {}
 };
 
 bool RecvRequest(SOCKET c, Request& req)
@@ -440,6 +708,15 @@ bool RecvRequest(SOCKET c, Request& req)
                 size_t p = head.find("Content-Length:");
                 if (p == std::string::npos) p = head.find("content-length:");
                 if (p != std::string::npos) contentLength = (size_t)strtoul(head.c_str() + p + 15, NULL, 10);
+
+                req.isJson = false;
+                size_t ct = head.find("Content-Type:");
+                if (ct == std::string::npos) ct = head.find("content-type:");
+                if (ct != std::string::npos) {
+                    size_t v = ct + 13;
+                    while (v < head.size() && (head[v] == ' ' || head[v] == '\t')) v++;
+                    if (_strnicmp(head.c_str() + v, "application/json", 16) == 0) req.isJson = true;
+                }
             }
         }
         if (headerEnd != std::string::npos && buf.size() >= headerEnd + 4 + contentLength) break;
@@ -472,7 +749,12 @@ void SendAll(SOCKET c, const std::string& text)
 
 void SendResponse(SOCKET c, int status, const std::string& type, const std::string& body)
 {
-    std::string head = "HTTP/1.1 " + std::to_string(status) + (status == 200 ? " OK" : " Not Found") + "\r\n";
+    const char* reason = "Not Found";
+    if (status == 200) reason = "OK";
+    else if (status == 400) reason = "Bad Request";
+    else if (status == 413) reason = "Payload Too Large";
+    else if (status == 415) reason = "Unsupported Media Type";
+    std::string head = "HTTP/1.1 " + std::to_string(status) + " " + reason + "\r\n";
     head += "Content-Type: " + type + "\r\n";
     head += "Content-Length: " + std::to_string(body.size()) + "\r\n";
     head += "Cache-Control: no-store\r\n";
@@ -485,7 +767,12 @@ void HandleClient(SOCKET c)
     Request req;
     if (RecvRequest(c, req))
     {
-        if (req.target.compare(0, 5, "/api/") == 0)
+        if (req.method == "POST" && !req.isJson)
+        {
+            SendResponse(c, 415, "application/json; charset=utf-8",
+                         "{\"ok\":false,\"code\":-415,\"msg\":\"Content-Type 必须是 application/json\"}");
+        }
+        else if (req.target.compare(0, 5, "/api/") == 0)
         {
             std::string body = HandleApi(req.target, req.body);
             SendResponse(c, 200, "application/json; charset=utf-8", body);

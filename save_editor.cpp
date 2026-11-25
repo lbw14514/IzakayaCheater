@@ -1,6 +1,8 @@
 #include "save_editor.h"
 #include <stdio.h>
 #include <string.h>
+#include <string>
+#include <limits.h>
 #include <shlobj.h>
 
 static const int INV_IDS[] = {2014, 2015, 2016, 2017, 2018, 2019};
@@ -87,14 +89,15 @@ static char* LoadFileForEdit(const char* path, long* outLen)
     *outLen = -1;
     FILE* f = fopen(path, "rb");
     if (!f) return NULL;
-    fseek(f, 0, SEEK_END);
+    if (fseek(f, 0, SEEK_END) != 0) { fclose(f); *outLen = -2; return NULL; }
     long len = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    char* buf = (char*)malloc(len + FILE_SLACK);
+    if (len < 0 || len > LONG_MAX - FILE_SLACK) { fclose(f); *outLen = -2; return NULL; }
+    if (fseek(f, 0, SEEK_SET) != 0) { fclose(f); *outLen = -2; return NULL; }
+    char* buf = (char*)malloc((size_t)len + FILE_SLACK);
     if (!buf) { fclose(f); *outLen = -2; return NULL; }
-    size_t bytesRead = fread(buf, 1, len, f);
+    size_t bytesRead = fread(buf, 1, (size_t)len, f);
     fclose(f);
-    if ((long)bytesRead != len) { free(buf); *outLen = -2; return NULL; }
+    if (bytesRead != (size_t)len) { free(buf); *outLen = -2; return NULL; }
     buf[len] = '\0';
     *outLen = len;
     return buf;
@@ -102,10 +105,19 @@ static char* LoadFileForEdit(const char* path, long* outLen)
 
 static int SaveEditedFile(const char* path, const char* buf, long len)
 {
-    FILE* f = fopen(path, "wb");
+    std::string temp = std::string(path) + ".ic.tmp";
+    FILE* f = fopen(temp.c_str(), "wb");
     if (!f) return -4;
-    fwrite(buf, 1, len, f);
-    fclose(f);
+    size_t written = fwrite(buf, 1, (size_t)len, f);
+    int closeResult = fclose(f);
+    if (written != (size_t)len || closeResult != 0) {
+        DeleteFileA(temp.c_str());
+        return -4;
+    }
+    if (!MoveFileExA(temp.c_str(), path, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+        DeleteFileA(temp.c_str());
+        return -4;
+    }
     return 0;
 }
 
@@ -702,6 +714,137 @@ int SaveEditor_MaxAllBonds(const char* path)
     return ret;
 }
 
+static long SetBondEntryLevel(char* entry, char** entryEnd, int level)
+{
+    long shift = 0;
+    char* exp = strstr(entry, BOND_EXP_KEY);
+    if (exp && exp < *entryEnd) {
+        const char* value = level >= 5 ? "9999" : "0";
+        shift += OverwriteNumber(exp + strlen(BOND_EXP_KEY), value);
+        *entryEnd += shift;
+    }
+    char* lvl = strstr(entry, BOND_LVL_KEY);
+    if (lvl && lvl < *entryEnd) {
+        char value[8] = {0};
+        _snprintf(value, sizeof(value) - 1, "%d", level);
+        shift += OverwriteNumber(lvl + strlen(BOND_LVL_KEY), value);
+        *entryEnd += shift;
+    }
+    return shift;
+}
+
+static long SetBondEntriesLevel(char* brace, char** end, const int* ids, int count, int level, int* applied)
+{
+    long shift = 0;
+    for (int i = 0; i < count; i++) {
+        char id_str[32] = {0};
+        _snprintf(id_str, sizeof(id_str) - 1, "\"%d\":", ids[i]);
+        char* entry = FindBefore(brace, *end, id_str);
+        if (!entry) continue;
+        char* ob = strchr(entry, '{');
+        if (!ob || ob >= *end) continue;
+        char* entryEnd = FindObjectEnd(ob);
+        long appliedShift = SetBondEntryLevel(entry, &entryEnd, level);
+        *end += appliedShift;
+        shift += appliedShift;
+        if (applied) (*applied)++;
+    }
+    return shift;
+}
+
+int SaveEditor_ListBonds(const char* path, int* ids, int* levels, int maxCount)
+{
+    long len = 0;
+    char* buf = LoadFileForEdit(path, &len);
+    if (!buf) return (int)len;
+
+    int total = 0;
+    char* p = buf;
+    while ((p = strstr(p, "\"specialSkinSelection\"")) != NULL) {
+        char* brace = strchr(p, '{');
+        if (!brace) break;
+        char* end = FindObjectEnd(brace);
+        char* q = brace + 1;
+        while (q < end) {
+            while (q < end && (*q == ' ' || *q == '\n' || *q == '\r' || *q == '\t' || *q == ',')) q++;
+            if (q >= end || *q == '}') break;
+            if (*q != '"') { q++; continue; }
+
+            char* keyStart = q + 1;
+            char* keyEnd = strchr(keyStart, '"');
+            if (!keyEnd || keyEnd >= end) break;
+
+            int id = 0;
+            bool numeric = keyEnd > keyStart;
+            for (char* k = keyStart; k < keyEnd; k++) {
+                if (*k < '0' || *k > '9') { numeric = false; break; }
+                id = id * 10 + (*k - '0');
+            }
+
+            char* colon = keyEnd + 1;
+            while (colon < end && (*colon == ' ' || *colon == '\n' || *colon == '\r' || *colon == '\t')) colon++;
+            if (colon >= end || *colon != ':') { q = keyEnd + 1; continue; }
+
+            char* ob = colon + 1;
+            while (ob < end && (*ob == ' ' || *ob == '\n' || *ob == '\r' || *ob == '\t')) ob++;
+            if (ob >= end || *ob != '{') { q = colon + 1; continue; }
+            char* oe = FindObjectEnd(ob);
+
+            if (numeric) {
+                bool duplicate = false;
+                for (int j = 0; j < total && j < maxCount; j++) {
+                    if (ids && ids[j] == id) duplicate = true;
+                }
+                if (!duplicate) {
+                    if (ids && levels && total < maxCount) {
+                        ids[total] = id;
+                        int level = 0;
+                        char* lvl = FindBefore(ob, oe, BOND_LVL_KEY);
+                        if (lvl) level = atoi(lvl + strlen(BOND_LVL_KEY));
+                        levels[total] = level;
+                    }
+                    total++;
+                }
+            }
+            q = oe;
+        }
+        p = end;
+    }
+
+    free(buf);
+    return total;
+}
+
+int SaveEditor_SetBondLevels(const char* path, const int* ids, int count, int level)
+{
+    if (!path || !ids || count <= 0) return 0;
+    if (level < 0) level = 0;
+    if (level > 5) level = 5;
+
+    long len = 0;
+    char* buf = LoadFileForEdit(path, &len);
+    if (!buf) return (int)len;
+    if (!strstr(buf, "\"specialSkinSelection\"")) {
+        free(buf);
+        return -8;
+    }
+
+    int applied = 0;
+    char* p = buf;
+    while ((p = strstr(p, "\"specialSkinSelection\"")) != NULL) {
+        char* brace = strchr(p, '{');
+        if (!brace) break;
+        char* end = FindObjectEnd(brace);
+        long shift = SetBondEntriesLevel(brace, &end, ids, count, level, &applied);
+        len += shift;
+        p = end;
+    }
+
+    int ret = (SaveEditedFile(path, buf, len) == 0) ? applied : -4;
+    free(buf);
+    return ret;
+}
+
 int SaveEditor_GetBossCount(void)
 {
     return BOSS_DEF_COUNT;
@@ -889,11 +1032,43 @@ int SaveEditor_AddInvitations(const char* path)
 
 int SaveEditor_GetSaveFolder(char* folder, DWORD size)
 {
-    char userProfile[MAX_PATH];
-    if (!GetEnvironmentVariableA("USERPROFILE", userProfile, sizeof(userProfile)))
-        return -1;
-    _snprintf(folder, size, "%s\\AppData\\LocalLow\\Epicomic\\Touhou Mystia Izakaya\\Memory\\Save\\%s",
-              userProfile, SAVE_SUBDIR);
+    char userProfile[MAX_PATH] = {0};
+    GetEnvironmentVariableA("USERPROFILE", userProfile, sizeof(userProfile));
+
+    if (userProfile[0]) {
+        _snprintf(folder, size, "%s\\AppData\\LocalLow\\Epicomic\\Touhou Mystia Izakaya\\Memory\\Save\\%s",
+                  userProfile, SAVE_SUBDIR);
+        if (GetFileAttributesA(folder) != INVALID_FILE_ATTRIBUTES)
+            return 0;
+    }
+
+    WIN32_FIND_DATAA users;
+    HANDLE hUsers = FindFirstFileA("C:\\Users\\*", &users);
+    if (hUsers != INVALID_HANDLE_VALUE) {
+        do {
+            if (users.cFileName[0] == '.') continue;
+            if (!(users.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) continue;
+            char candidate[MAX_PATH] = {0};
+            _snprintf(candidate, sizeof(candidate),
+                      "C:\\Users\\%s\\AppData\\LocalLow\\Epicomic\\Touhou Mystia Izakaya\\Memory\\Save\\%s",
+                      users.cFileName, SAVE_SUBDIR);
+            if (GetFileAttributesA(candidate) != INVALID_FILE_ATTRIBUTES) {
+                _snprintf(folder, size, "%s", candidate);
+                FindClose(hUsers);
+                return 0;
+            }
+        } while (FindNextFileA(hUsers, &users));
+        FindClose(hUsers);
+    }
+
+    if (userProfile[0]) {
+        _snprintf(folder, size, "%s\\AppData\\LocalLow\\Epicomic\\Touhou Mystia Izakaya\\Memory\\Save\\%s",
+                  userProfile, SAVE_SUBDIR);
+    } else {
+        _snprintf(folder, size,
+                  "C:\\Users\\Public\\AppData\\LocalLow\\Epicomic\\Touhou Mystia Izakaya\\Memory\\Save\\%s",
+                  SAVE_SUBDIR);
+    }
     return 0;
 }
 
@@ -926,7 +1101,10 @@ int SaveEditor_AddInvitationsToSlot(int slot)
     int ret = SaveEditor_GetPath(slot, path, sizeof(path));
     if (ret) return ret;
     ret = SaveEditor_AddInvitations(path);
-    if (ret == 0) SaveEditor_SetDLC2Bonds(path);
+    if (ret == 0) {
+        int bondRet = SaveEditor_SetDLC2Bonds(path);
+        if (bondRet < 0) return bondRet;
+    }
     return ret;
 }
 
@@ -939,7 +1117,9 @@ static int SetDLC2BondsImpl(const char* path)
     char* buf = LoadFileForEdit(path, &len);
     if (!buf) return (int)len;
 
-    char* dlc2 = strstr(buf, "\"DLC2\"");
+    char* album = strstr(buf, "\"albumPartialDLC\"");
+    if (!album) { free(buf); return 0; }
+    char* dlc2 = strstr(album, "\"DLC2\"");
     if (!dlc2) { free(buf); return 0; }
     char* sss = strstr(dlc2, "\"specialSkinSelection\"");
     if (!sss) { free(buf); return -3; }

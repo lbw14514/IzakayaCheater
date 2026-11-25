@@ -1,7 +1,55 @@
 const $ = (id) => document.getElementById(id);
 
-const state = { slot: null, boss: 0, busy: false };
+const state = { slot: null, boss: 0, method: 'B', busy: false, page: 'live' };
 let bosses = [];
+const LIVE_CATEGORIES = [
+  ['badges', '徽章'],
+  ['clothes', '衣服'],
+  ['records', '唱片'],
+  ['fishing', '垂钓'],
+  ['partners', '伙伴'],
+  ['decorations', '装饰'],
+  ['ingredients', '食材'],
+  ['foods', '料理'],
+  ['beverages', '酒水'],
+  ['cookers', '厨具'],
+  ['recipes', '食谱'],
+  ['izakayas', '店面']
+];
+const FEATURE_SWITCHES = [
+  { key: 'obtain:badges', label: '全部徽章' },
+  { key: 'obtain:clothes', label: '全部衣服' },
+  { key: 'obtain:records', label: '全部唱片' },
+  { key: 'obtain:fishing', label: '全部垂钓' },
+  { key: 'obtain:partners', label: '全部伙伴' },
+  { key: 'obtain:decorations', label: '全部装饰' },
+  { key: 'obtain:ingredients', label: '全部食材' },
+  { key: 'obtain:foods', label: '全部料理' },
+  { key: 'obtain:beverages', label: '全部酒水' },
+  { key: 'obtain:cookers', label: '全部厨具' },
+  { key: 'obtain:recipes', label: '全部食谱' },
+  { key: 'obtain:izakayas', label: '全部店面' },
+  { key: 'freeze_time', label: '暂停时间' }
+];
+
+const FEATURE_HOTKEYS = [
+  { codes: ['Digit1', 'Numpad1'], label: 'Ctrl+1' },
+  { codes: ['Digit2', 'Numpad2'], label: 'Ctrl+2' },
+  { codes: ['Digit3', 'Numpad3'], label: 'Ctrl+3' },
+  { codes: ['Digit4', 'Numpad4'], label: 'Ctrl+4' },
+  { codes: ['Digit5', 'Numpad5'], label: 'Ctrl+5' },
+  { codes: ['Digit6', 'Numpad6'], label: 'Ctrl+6' },
+  { codes: ['Digit7', 'Numpad7'], label: 'Ctrl+7' },
+  { codes: ['Digit8', 'Numpad8'], label: 'Ctrl+8' },
+  { codes: ['Digit9', 'Numpad9'], label: 'Ctrl+9' },
+  { codes: ['Digit0', 'Numpad0'], label: 'Ctrl+0' },
+  { codes: ['Minus', 'NumpadSubtract'], label: 'Ctrl+-' },
+  { codes: ['Equal', 'NumpadAdd'], label: 'Ctrl+=' },
+  { codes: ['Period', 'NumpadDecimal'], label: 'Ctrl+.' }
+];
+
+let liveStatusBusy = false;
+let liveBusy = false;
 
 async function api(path, body) {
   const init = body === undefined ? {} : {
@@ -96,23 +144,30 @@ async function loadSaves(keepSlot) {
   selectSlot(wanted);
 }
 
-async function selectSlot(slot) {
+function selectSlot(slot) {
   state.slot = slot;
   document.querySelectorAll('.save-item').forEach((el) => {
     el.classList.toggle('active', Number(el.dataset.slot) === slot);
   });
   updateSlotTag();
-  try {
-    const info = await api('/api/save?slot=' + slot);
-    if (info.ok && typeof info.fund === 'number') $('moneyInput').value = info.fund;
-  } catch (e) {
-    $('moneyInput').value = '';
-  }
+  if (state.page === 'bond') loadBonds();
 }
 
 function updateSlotTag() {
-  $('slotTag').textContent = state.slot === null ? '未选择存档' : '当前 Mystia#' + state.slot + '.memory';
+  $('slotTag').textContent = state.slot === null ? '未选择存档' : 'Mystia#' + state.slot;
 }
+
+const BOSS_METHODS = [
+  { key: 'A', label: '排队事件 已禁用', endpoint: '/api/boss/queue', flag: 'hasQueue', disabled: true,
+    title: '排队事件', text: '只往存档写 scheduledEvents 实测不触发 是否继续',
+    desc: '已禁用 只往存档写 scheduledEvents 实测不触发 真正生效需要在游戏运行时调用 ScheduleEventExtern' },
+  { key: 'B', label: '标记通关', endpoint: '/api/boss/clear', flag: 'hasClear',
+    title: '标记通关', text: '会把该 Boss 标记为已通关 是跳过不是开打 是否继续',
+    desc: '写入 finishedMissions 把最终战标记为已完成 等于跳过 不会开打' },
+  { key: 'C', label: '邀请函', endpoint: '/api/boss/invite', flag: 'hasInvite',
+    title: '邀请函', text: '会给该存档添加邀请函 是否继续',
+    desc: '添加邀请函物品 2014 到 2019 可在游戏内使用' }
+];
 
 async function loadBosses() {
   bosses = await api('/api/bosses');
@@ -121,24 +176,376 @@ async function loadBosses() {
   bosses.forEach((b) => {
     const o = document.createElement('option');
     o.value = b.id;
-    o.textContent = b.label + '（' + b.methods + '）';
+    o.textContent = b.label;
     sel.appendChild(o);
   });
   state.boss = bosses.length ? bosses[0].id : 0;
   sel.value = state.boss;
+  syncDropdown(sel);
+  renderBossMethods();
   refreshBoss();
+}
+
+function renderBossMethods() {
+  const sel = $('bossMethod');
+  sel.innerHTML = '';
+  BOSS_METHODS.forEach((m) => {
+    const o = document.createElement('option');
+    o.value = m.key;
+    o.textContent = m.label;
+    o.disabled = Boolean(m.disabled);
+    sel.appendChild(o);
+  });
+  sel.value = state.method;
+  syncDropdown(sel);
 }
 
 function refreshBoss() {
   const b = bosses.find((x) => x.id === state.boss);
   if (!b) return;
-  $('bossDesc').textContent = b.desc;
-  const map = { btnQueue: 'hasQueue', btnClear: 'hasClear', btnInvite: 'hasInvite' };
-  Object.keys(map).forEach((id) => {
-    const enabled = Boolean(b[map[id]]);
-    $(id).disabled = !enabled;
-    $(id).title = enabled ? '' : '该 Boss 不支持此方案';
+
+  const methodSel = $('bossMethod');
+  BOSS_METHODS.forEach((m) => {
+    const option = [...methodSel.options].find((o) => o.value === m.key);
+    if (option) option.disabled = Boolean(m.disabled) || !b[m.flag];
   });
+
+  let method = BOSS_METHODS.find((m) => m.key === state.method);
+  if (!method || method.disabled || !b[method.flag]) {
+    const first = BOSS_METHODS.find((m) => !m.disabled && b[m.flag]);
+    if (first) {
+      state.method = first.key;
+      methodSel.value = first.key;
+      method = first;
+    }
+  }
+
+  const supported = method && !method.disabled && Boolean(b[method.flag]);
+  $('bossDesc').textContent = method
+    ? method.desc + (supported ? '' : (method.disabled ? '' : '\n当前 Boss 不支持此方式'))
+    : '';
+  const runButton = $('btnBossRun');
+  runButton.disabled = !supported;
+  runButton.title = supported ? '' : (method && method.disabled ? '该方式已禁用' : '当前 Boss 不支持此方式');
+  syncDropdown(methodSel);
+}
+
+function syncDropdown(select) {
+  const wrap = select.closest('.dropdown');
+  if (!wrap) return;
+  const toggle = wrap.querySelector('.dd-toggle');
+  const panel = wrap.querySelector('.dd-panel');
+  panel.innerHTML = '';
+  [...select.options].forEach((option) => {
+    const item = document.createElement('div');
+    item.className = 'dd-item'
+      + (option.disabled ? ' disabled' : '')
+      + (option.selected ? ' selected' : '');
+    item.dataset.value = option.value;
+    item.textContent = option.textContent;
+    panel.appendChild(item);
+  });
+  const current = select.options[select.selectedIndex];
+  toggle.textContent = current ? current.textContent : '';
+}
+
+function closeDropdowns(except) {
+  document.querySelectorAll('.dropdown.open').forEach((wrap) => {
+    if (wrap === except) return;
+    wrap.classList.remove('open');
+    wrap.querySelector('.dd-panel').hidden = true;
+    wrap.querySelector('.dd-toggle').setAttribute('aria-expanded', 'false');
+  });
+}
+
+function enhanceSelect(select) {
+  const wrap = document.createElement('div');
+  wrap.className = 'dropdown' + (select.classList.contains('level-select') ? ' dd-level' : '');
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'input dd-toggle';
+  toggle.setAttribute('aria-haspopup', 'listbox');
+  toggle.setAttribute('aria-expanded', 'false');
+  const panel = document.createElement('div');
+  panel.className = 'dd-panel';
+  panel.hidden = true;
+  select.parentNode.insertBefore(wrap, select);
+  select.classList.add('dd-native');
+  wrap.appendChild(select);
+  wrap.appendChild(toggle);
+  wrap.appendChild(panel);
+
+  const setOpen = (open) => {
+    closeDropdowns(open ? wrap : null);
+    wrap.classList.toggle('open', open);
+    panel.hidden = !open;
+    toggle.setAttribute('aria-expanded', String(open));
+  };
+
+  toggle.addEventListener('click', () => setOpen(panel.hidden));
+  panel.addEventListener('click', (e) => {
+    const item = e.target.closest('.dd-item');
+    if (!item || item.classList.contains('disabled')) return;
+    select.value = item.dataset.value;
+    setOpen(false);
+    syncDropdown(select);
+    select.dispatchEvent(new Event('change'));
+  });
+  syncDropdown(select);
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.dropdown')) closeDropdowns(null);
+});
+
+function setPage(page) {
+  state.page = page;
+  document.querySelectorAll('.nav-btn').forEach((button) => {
+    const active = button.dataset.target === page;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+  document.querySelectorAll('.stack > .card[data-page]').forEach((card) => {
+    card.hidden = card.dataset.page !== page;
+  });
+  if (page === 'live') ensureLiveAttached();
+  if (page === 'bond') loadBonds();
+}
+
+function renderLiveCategories() {
+  const grid = $('obtainGrid');
+  grid.innerHTML = '';
+  LIVE_CATEGORIES.forEach(([key, label]) => {
+    const button = document.createElement('button');
+    button.className = 'chip';
+    button.dataset.obtain = key;
+    button.textContent = '全部' + label;
+    button.disabled = true;
+    grid.appendChild(button);
+  });
+}
+
+function renderFeatureSwitches() {
+  const grid = $('featureSwitches');
+  grid.innerHTML = '';
+  FEATURE_SWITCHES.forEach((feature, index) => {
+    const row = document.createElement('label');
+    row.className = 'switch-row';
+
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.dataset.feature = feature.key;
+    input.addEventListener('change', () => setFeature(feature, input.checked));
+
+    const track = document.createElement('span');
+    track.className = 'switch-track';
+    const thumb = document.createElement('span');
+    thumb.className = 'switch-thumb';
+    track.appendChild(thumb);
+
+    const label = document.createElement('span');
+    label.className = 'switch-label';
+    label.textContent = feature.label;
+
+    const key = document.createElement('kbd');
+    key.textContent = FEATURE_HOTKEYS[index].label;
+
+    row.appendChild(input);
+    row.appendChild(track);
+    row.appendChild(label);
+    row.appendChild(key);
+    grid.appendChild(row);
+  });
+}
+
+async function setFeature(feature, enabled) {
+  const input = document.querySelector(`input[data-feature="${feature.key}"]`);
+  try {
+    const res = await api('/api/trainer/feature', { key: feature.key, enabled });
+    if (!res.ok) throw new Error(res.msg || '开关未生效');
+  } catch (e) {
+    if (input) input.checked = !enabled;
+    toast('开关失败 ' + e.message, 'err');
+  }
+}
+
+function setLiveReady(moneyReady, obtainReady) {
+  $('btnLiveMoney').disabled = !moneyReady;
+  document.querySelectorAll('[data-obtain]').forEach((button) => {
+    button.disabled = !obtainReady;
+  });
+}
+
+async function ensureLiveAttached() {
+  if (state.page !== 'live') return;
+  try {
+    const st = await api('/api/trainer/status');
+    if (st.game && !st.attached) {
+      await api('/api/trainer/attach', {});
+    }
+  } catch (e) {
+    // 状态轮询会显示具体错误
+  }
+  loadTrainerStatus();
+}
+
+async function runAutoSelfCheck() {
+  try {
+    const res = await api('/api/selfcheck');
+    const lines = res.lines || [];
+    console.info('[自检]\n' + lines.join('\n'));
+    const bad = lines.filter((line) => /缺失|读取失败|管理员权限 否/.test(line));
+    if (bad.length) toast('自检发现 ' + bad.length + ' 项异常 详情见控制台', 'err');
+  } catch (e) {
+    console.warn('自检失败', e);
+  }
+}
+
+async function loadTrainerStatus() {
+  if (liveStatusBusy) return;
+  liveStatusBusy = true;
+  try {
+    const st = await api('/api/trainer/status');
+    const tag = $('liveTag');
+    const procTag = $('procTag');
+    const procDesc = $('procDesc');
+    const attached = Boolean(st.attached);
+    const moneyReady = attached && Boolean(st.moneyReady);
+    const obtainReady = attached && Boolean(st.game);
+    const ready = moneyReady || obtainReady;
+
+    const lamp = $('procLamp');
+    if (!st.game) {
+      lamp.className = 'status-lamp off';
+      procTag.textContent = '游戏未启动';
+      procDesc.textContent = '未检测到游戏进程';
+    } else if (!attached) {
+      lamp.className = 'status-lamp detected';
+      procTag.textContent = '游戏运行中';
+      procDesc.textContent = '已检测 未附加';
+    } else if (!ready) {
+      lamp.className = 'status-lamp detected';
+      procTag.textContent = '已附加 未就绪';
+      procDesc.textContent = '部分功能未就绪';
+    } else {
+      lamp.className = 'status-lamp live';
+      procTag.textContent = '已附加';
+      procDesc.textContent = '常用功能可用';
+    }
+
+    if (!st.game) {
+      tag.textContent = '未检测到游戏';
+    } else if (!attached) {
+      tag.textContent = '未连接';
+    } else if (!ready) {
+      tag.textContent = '已连接 未就绪';
+    } else {
+      tag.textContent = '已连接';
+      if (moneyReady) $('liveMoney').placeholder = '当前金钱 ' + st.money;
+    }
+
+    setLiveReady(moneyReady, obtainReady);
+  } catch (e) {
+    $('liveTag').textContent = '状态读取失败';
+    $('procLamp').className = 'status-lamp off';
+    $('procTag').textContent = '检测失败';
+    $('procDesc').textContent = e.message;
+    setLiveReady(false, false);
+  } finally {
+    liveStatusBusy = false;
+  }
+}
+
+async function liveAction(button, path, body, title, text) {
+  if (liveBusy) return;
+  if (text) {
+    const ok = await confirmBox(title, text);
+    if (!ok) return;
+  }
+  liveBusy = true;
+  const old = button.textContent;
+  button.disabled = true;
+  button.textContent = '处理中';
+  try {
+    const res = await api(path, body || {});
+    toast(res.msg, res.ok ? 'ok' : 'err');
+    await loadTrainerStatus();
+  } catch (e) {
+    toast('调用失败 ' + e.message, 'err');
+  } finally {
+    button.textContent = old;
+    liveBusy = false;
+  }
+}
+
+const bondMembers = [];
+
+function bondCheckedIds() {
+  return [...$('bondPersonPanel').querySelectorAll('input[type="checkbox"]:checked')]
+    .map((checkbox) => Number(checkbox.value));
+}
+
+function updateBondToggle() {
+  const count = bondCheckedIds().length;
+  $('bondPersonToggle').textContent = count ? '已选 ' + count + ' 人' : '选择人物';
+}
+
+function setBondPanel(open) {
+  $('bondPersonPanel').hidden = !open;
+  $('bondPersonToggle').setAttribute('aria-expanded', String(open));
+}
+
+function renderBondMembers() {
+  const panel = $('bondPersonPanel');
+  panel.innerHTML = '';
+  bondMembers.forEach((bond) => {
+    const item = document.createElement('label');
+    item.className = 'ms-item';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = String(bond.id);
+    checkbox.addEventListener('change', updateBondToggle);
+    const name = document.createElement('span');
+    name.textContent = '角色 ' + bond.id;
+    const level = document.createElement('em');
+    level.textContent = 'Lv' + bond.level;
+    item.appendChild(checkbox);
+    item.appendChild(name);
+    item.appendChild(level);
+    panel.appendChild(item);
+  });
+  updateBondToggle();
+}
+
+async function loadBonds() {
+  const tag = $('bondTag');
+  bondMembers.length = 0;
+  if (state.slot === null) {
+    renderBondMembers();
+    setBondPanel(false);
+    tag.textContent = '未选择存档';
+    $('bondDesc').textContent = '请先选择一个存档';
+    return;
+  }
+  try {
+    const data = await api('/api/bonds/list?slot=' + state.slot);
+    if (!data.ok || !data.bonds.length) {
+      renderBondMembers();
+      setBondPanel(false);
+      tag.textContent = '没有好感数据';
+      $('bondDesc').textContent = '该存档没有找到好感数据';
+      return;
+    }
+    bondMembers.push(...data.bonds);
+    renderBondMembers();
+    tag.textContent = 'Mystia#' + state.slot;
+    $('bondDesc').textContent = '已读取 ' + data.bonds.length + ' 个角色 选人物和等级后写入 角色名映射待补';
+  } catch (e) {
+    renderBondMembers();
+    setBondPanel(false);
+    tag.textContent = '读取失败';
+    $('bondDesc').textContent = e.message;
+  }
 }
 
 async function run(button, path, body, title, text) {
@@ -161,9 +568,14 @@ async function run(button, path, body, title, text) {
     toast('调用失败 ' + e.message, 'err');
   } finally {
     button.textContent = old;
+    button.disabled = false;
     refreshBoss();
   }
 }
+
+document.querySelectorAll('.nav-btn').forEach((button) => {
+  button.addEventListener('click', () => setPage(button.dataset.target));
+});
 
 $('btnRefresh').addEventListener('click', async () => {
   try {
@@ -174,42 +586,116 @@ $('btnRefresh').addEventListener('click', async () => {
   }
 });
 
-$('btnMoney').addEventListener('click', () => {
-  const v = Number.parseInt($('moneyInput').value, 10);
-  if (!Number.isFinite(v)) {
+$('bondPersonToggle').addEventListener('click', () => {
+  setBondPanel($('bondPersonPanel').hidden);
+});
+
+document.addEventListener('click', (e) => {
+  if (e.target.closest('.multiselect')) return;
+  if (!$('bondPersonPanel').hidden) setBondPanel(false);
+});
+
+$('btnBondApply').addEventListener('click', async () => {
+  if (state.slot === null) {
+    toast('请先选择一个存档', 'err');
+    return;
+  }
+  const ids = bondCheckedIds();
+  if (!ids.length) {
+    toast('请先选择人物', 'err');
+    return;
+  }
+  const level = Number.parseInt($('bondLevel').value, 10);
+  const ok = await confirmBox('修改好感度', '会把选中的 ' + ids.length + ' 个角色好感度改为等级 ' + level + ' 是否继续');
+  if (!ok) return;
+  const button = $('btnBondApply');
+  button.disabled = true;
+  button.textContent = '处理中';
+  try {
+    const res = await api('/api/bonds/set', { slot: state.slot, ids, level });
+    toast(res.msg, res.ok ? 'ok' : 'err');
+    await loadBonds();
+  } catch (e) {
+    toast('调用失败 ' + e.message, 'err');
+  } finally {
+    button.disabled = false;
+    button.textContent = '写入选中角色';
+  }
+});
+
+$('btnLiveMoney').addEventListener('click', () => {
+  const value = Number.parseInt($('liveMoney').value, 10);
+  if (!Number.isFinite(value) || value < 0) {
     toast('请输入有效金额', 'err');
     return;
   }
-  run($('btnMoney'), '/api/fund', { value: v }, '写入金钱', '会把该存档的金钱改为 ' + v + ' 是否继续');
+  liveAction($('btnLiveMoney'), '/api/trainer/money', { value }, '实时改金钱',
+    '会立即修改运行中游戏的金钱为 ' + value + ' 是否继续');
 });
 
-document.querySelectorAll('.chip').forEach((chip) => {
-  chip.addEventListener('click', () => { $('moneyInput').value = chip.dataset.money; });
-});
-
-$('btnMaps').addEventListener('click', () => {
-  run($('btnMaps'), '/api/maps', {}, '解锁全部地图', '会为该存档解锁全部地图（本体 + DLC1~5） 并补写 DLC 激活项 是否继续');
-});
-
-$('btnBonds').addEventListener('click', () => {
-  run($('btnBonds'), '/api/bonds', {}, '全部满好感', '会把这个存档里所有角色的好感改满（等级 5） 是否继续');
-});
-
-$('btnQueue').addEventListener('click', () => {
-  run($('btnQueue'), '/api/boss/queue', { boss: state.boss }, '方案A', '方案A 只往存档写 scheduledEvents 实测触发不了 是否继续');
-});
-
-$('btnClear').addEventListener('click', () => {
-  run($('btnClear'), '/api/boss/clear', { boss: state.boss }, '方案B 标记通关', '方案B 会把该 Boss 标记为已通关以解锁再战 是否继续');
-});
-
-$('btnInvite').addEventListener('click', () => {
-  run($('btnInvite'), '/api/boss/invite', { boss: state.boss }, '方案C 添加邀请函', '方案C 会给该存档添加邀请函（物品 2014~2019） 是否继续');
+$('obtainGrid').addEventListener('click', (e) => {
+  const button = e.target.closest('[data-obtain]');
+  if (!button || button.disabled) return;
+  const label = button.textContent;
+  liveAction(button, '/api/trainer/obtain', { category: button.dataset.obtain }, label,
+    '会立即把' + label + '加入运行中游戏 是否继续');
 });
 
 $('bossSelect').addEventListener('change', (e) => {
   state.boss = Number(e.target.value);
   refreshBoss();
+});
+
+$('bossMethod').addEventListener('change', (e) => {
+  state.method = e.target.value;
+  refreshBoss();
+});
+
+$('btnBossRun').addEventListener('click', () => {
+  const method = BOSS_METHODS.find((m) => m.key === state.method);
+  if (!method) return;
+  run($('btnBossRun'), method.endpoint, { boss: state.boss }, method.title, method.text);
+});
+
+document.addEventListener('keydown', (e) => {
+  if (!e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) return;
+  if (e.target && e.target.closest && e.target.closest('input:not([type="checkbox"]), textarea, select')) return;
+  const index = FEATURE_HOTKEYS.findIndex((item) => item.codes.includes(e.code));
+  if (index < 0) return;
+  const feature = FEATURE_SWITCHES[index];
+  const input = document.querySelector(`input[data-feature="${feature.key}"]`);
+  if (!input) return;
+  e.preventDefault();
+  input.checked = !input.checked;
+  setFeature(feature, input.checked);
+});
+
+document.addEventListener('beforeinput', (e) => {
+  const input = e.target;
+  if (!(input instanceof HTMLInputElement)) return;
+  const mode = input.dataset.input;
+  if (!mode || !e.data || e.isComposing) return;
+  if (mode === 'int' && !/^\d+$/.test(e.data)) e.preventDefault();
+  if (mode === 'decimal' && !/^[\d.]+$/.test(e.data)) e.preventDefault();
+});
+
+document.addEventListener('input', (e) => {
+  const input = e.target;
+  if (!(input instanceof HTMLInputElement)) return;
+  const mode = input.dataset.input;
+  if (!mode) return;
+  const raw = input.value;
+  let clean = raw;
+  if (mode === 'int') {
+    clean = raw.replace(/[^\d]/g, '');
+  } else if (mode === 'decimal') {
+    clean = raw.replace(/[^\d.]/g, '');
+    const dot = clean.indexOf('.');
+    if (dot !== -1) {
+      clean = clean.slice(0, dot + 1) + clean.slice(dot + 1).replace(/\./g, '');
+    }
+  }
+  if (clean !== raw) input.value = clean;
 });
 
 $('btnBg').addEventListener('click', () => $('bgFile').click());
@@ -260,6 +746,19 @@ function showAbout(m) {
     p.textContent = text;
     box.appendChild(p);
   });
+  box.appendChild(document.createElement('hr'));
+  const repo = document.createElement('p');
+  repo.appendChild(document.createTextNode('仓库地址 '));
+  const link = document.createElement('a');
+  link.href = 'https://github.com/lbw14514/IzakayaCheater';
+  link.target = '_blank';
+  link.rel = 'noreferrer';
+  link.textContent = 'https://github.com/lbw14514/IzakayaCheater';
+  repo.appendChild(link);
+  box.appendChild(repo);
+  const star = document.createElement('p');
+  star.textContent = '喜欢本项目的话希望可以给咱一颗星';
+  box.appendChild(star);
   $('modalCancel').style.display = 'none';
   $('modalMask').classList.add('show');
   return new Promise((resolve) => { modalResolve = resolve; });
@@ -285,6 +784,13 @@ if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 
 (async function init() {
   window.scrollTo(0, 0);
+  renderLiveCategories();
+  renderFeatureSwitches();
+  enhanceSelect($('bossSelect'));
+  enhanceSelect($('bossMethod'));
+  enhanceSelect($('bondLevel'));
+  setPage('live');
+  runAutoSelfCheck();
   try {
     await loadMeta();
     await loadBosses();
@@ -292,5 +798,6 @@ if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
   } catch (e) {
     toast('无法连接本地服务 ' + e.message, 'err');
   }
+  setInterval(loadTrainerStatus, 3000);
   window.scrollTo(0, 0);
 })();

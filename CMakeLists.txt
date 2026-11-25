@@ -6,12 +6,45 @@ configure_file(config.h.in config.h)
 find_package(wxWidgets 3.2 REQUIRED COMPONENTS core base)
 include(${wxWidgets_USE_FILE})
 
+add_library(IzakayaCheatCore SHARED
+    core/dllmain.cpp
+    core/game_api.cpp
+    core/il2cpp_api.cpp
+    core/ipc_server.cpp
+    core/log.cpp
+    core/main_thread.cpp)
+
+target_include_directories(IzakayaCheatCore PRIVATE
+    ${PROJECT_SOURCE_DIR}
+    ${PROJECT_SOURCE_DIR}/core)
+
+set_target_properties(IzakayaCheatCore PROPERTIES
+    CXX_STANDARD 11
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    PREFIX ""
+    OUTPUT_NAME "IzakayaCheatCore")
+
+if(MINGW)
+    target_link_options(IzakayaCheatCore PRIVATE -static -static-libgcc -static-libstdc++)
+elseif(MSVC)
+    target_compile_options(IzakayaCheatCore PRIVATE /W4 /utf-8)
+endif()
+
+if(NOT MSVC)
+    target_compile_options(IzakayaCheatCore PRIVATE -Wall -Wextra)
+endif()
+
 add_executable(IzakayaCheater
     resource.rc
     main.cpp
     save_editor.cpp
+    trainer_client.cpp
+    trainer_injector.cpp
     web_server.cpp
     webview_host.cpp)
+
+add_dependencies(IzakayaCheater IzakayaCheatCore)
 
 target_include_directories(IzakayaCheater PRIVATE
     ${PROJECT_BINARY_DIR}
@@ -26,7 +59,22 @@ add_custom_command(TARGET IzakayaCheater POST_BUILD
             $<TARGET_FILE_DIR:IzakayaCheater>/web
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
             ${CMAKE_CURRENT_SOURCE_DIR}/third_party/webview2/x64/WebView2Loader.dll
-            $<TARGET_FILE_DIR:IzakayaCheater>/WebView2Loader.dll)
+            $<TARGET_FILE_DIR:IzakayaCheater>/WebView2Loader.dll
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:IzakayaCheatCore>
+            $<TARGET_FILE_DIR:IzakayaCheater>/IzakayaCheatCore.dll)
+
+if(MINGW)
+    get_filename_component(MINGW_RUNTIME_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    foreach(runtime_dll libwinpthread-1.dll libstdc++-6.dll libgcc_s_seh-1.dll)
+        if(EXISTS "${MINGW_RUNTIME_DIR}/${runtime_dll}")
+            add_custom_command(TARGET IzakayaCheater POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                        "${MINGW_RUNTIME_DIR}/${runtime_dll}"
+                        "$<TARGET_FILE_DIR:IzakayaCheater>/${runtime_dll}")
+        endif()
+    endforeach()
+endif()
 
 set_target_properties(IzakayaCheater PROPERTIES
     CXX_STANDARD 11

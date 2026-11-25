@@ -76,6 +76,7 @@ jobs:
         run: |
           mkdir -p stage
           cp build/IzakayaCheater.exe stage/
+          cp build/IzakayaCheatCore.dll stage/
           cp build/WebView2Loader.dll stage/
           cp -r build/web stage/web
           cp /ucrt64/bin/libwinpthread-1.dll stage/
