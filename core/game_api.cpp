@@ -484,7 +484,7 @@ bool Game_Obtain(const std::string& category, std::string* error)
 
             state->ok = true;
             state->done = true;
-        }, 8000, &localError)) {
+        }, 60000, &localError)) {
         if (error) *error = localError;
         return false;
     }
@@ -638,7 +638,7 @@ bool Game_Special(const std::string& key, int value, int value2, const std::stri
             if (!Il2Cpp_Load(&state->error)) return;
             Il2Cpp_Attach();
             state->ok = Special_Call(key, value, value2, text, &state->error);
-        }, 8000, &localError)) {
+        }, 60000, &localError)) {
         if (error) *error = localError;
         return false;
     }

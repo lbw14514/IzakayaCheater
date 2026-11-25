@@ -181,3 +181,22 @@ void* Il2Cpp_StringNew(const char* text)
     if (!g_loaded || !g_api.string_new || !text) return NULL;
     return g_api.string_new(text);
 }
+
+void* Il2Cpp_MethodFromClass(void* klass, const char* method, int argc)
+{
+    if (!g_loaded || !g_api.class_get_method_from_name || !klass || !method) return NULL;
+    return g_api.class_get_method_from_name(klass, method, argc);
+}
+
+std::string Il2Cpp_StringToUtf8(void* text)
+{
+    if (!text) return std::string();
+    int length = *(int*)((char*)text + 0x10);
+    if (length <= 0) return std::string();
+    const wchar_t* chars = (const wchar_t*)((char*)text + 0x14);
+    int bytes = WideCharToMultiByte(CP_UTF8, 0, chars, length, NULL, 0, NULL, NULL);
+    if (bytes <= 0) return std::string();
+    std::string out((size_t)bytes, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, chars, length, &out[0], bytes, NULL, NULL);
+    return out;
+}

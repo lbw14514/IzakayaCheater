@@ -1155,6 +1155,7 @@ const SPECIAL_GROUPS = [
     note: '会永久修改 Steam 成就 可能违反 Steam 服务条款 且无法撤销',
     danger: true,
     actions: [
+      { key: 'ach_unlock_all', label: '一键解锁全部成就', danger: true },
       { key: 'ach_check_all', label: '检查全部成就条件', danger: true },
       { key: 'ach_finish', label: '解锁指定成就 ID', arg: 'text', placeholder: 'Achievement_1_1stPlay', danger: true },
       { key: 'ach_finish_check', label: '解锁并检查指定 ID', arg: 'text', placeholder: 'Achievement_1_1stPlay', danger: true }

@@ -1,11 +1,55 @@
 #include "special_actions.h"
 #include "il2cpp_api.h"
+#include "log.h"
 
+#include <windows.h>
+#include <csetjmp>
 #include <cstdio>
 #include <cstring>
 
 namespace
 {
+thread_local jmp_buf* g_guard = NULL;
+
+LONG CALLBACK GuardHandler(EXCEPTION_POINTERS* info)
+{
+    if (!g_guard || !info || !info->ExceptionRecord) return EXCEPTION_CONTINUE_SEARCH;
+    DWORD code = info->ExceptionRecord->ExceptionCode;
+    if (code == 0xC0000005 || code == 0xE06D7363 || code == 0xC000001D ||
+        code == 0xC0000094 || code == 0xC00000FD) {
+        jmp_buf* guard = g_guard;
+        g_guard = NULL;
+        longjmp(*guard, 1);
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
+void EnsureGuard()
+{
+    static bool installed = []() {
+        AddVectoredExceptionHandler(1, GuardHandler);
+        return true;
+    }();
+    (void)installed;
+}
+
+template <typename Fn>
+bool SafeInvoke(Fn fn, std::string* error)
+{
+    EnsureGuard();
+    jmp_buf buffer;
+    jmp_buf* previous = g_guard;
+    g_guard = &buffer;
+    if (setjmp(buffer) == 0) {
+        fn();
+        g_guard = previous;
+        return true;
+    }
+    g_guard = previous;
+    if (error) *error = "游戏函数异常已拦截";
+    return false;
+}
+
 const char* kGameImage = "Assembly-CSharp.dll";
 
 enum ArgKind
@@ -132,11 +176,81 @@ const Def* Find(const std::string& key)
     }
     return NULL;
 }
+
+bool UnlockAllAchievements(std::string* error)
+{
+    void* getIds = Il2Cpp_Method(kGameImage, "GameData.RunTime.Common.AchievementSystem",
+                                 "DataBaseAchievement", "get_achievementsId", 0);
+    void* finish = Il2Cpp_Method(kGameImage, "GameData.RunTime.Common.AchievementSystem",
+                                 "DataBaseAchievement", "FinishAchievement", 1);
+    if (!getIds || !finish || !Il2Cpp_MethodIsStatic(getIds) || !Il2Cpp_MethodIsStatic(finish)) {
+        if (error) *error = "未找到成就列表或解锁方法";
+        return false;
+    }
+    void* getIdsPtr = Il2Cpp_MethodPointer(getIds);
+    void* finishPtr = Il2Cpp_MethodPointer(finish);
+    if (!getIdsPtr || !finishPtr) {
+        if (error) *error = "成就方法指针为空";
+        return false;
+    }
+
+    void* list = NULL;
+    if (!SafeInvoke([&]() { list = ((void*(*)())getIdsPtr)(); }, error)) return false;
+    if (!list) {
+        if (error) *error = "成就列表为空";
+        return false;
+    }
+
+    void* klass = *(void**)list;
+    void* countMethod = Il2Cpp_MethodFromClass(klass, "get_Count", 0);
+    void* itemMethod = Il2Cpp_MethodFromClass(klass, "get_Item", 1);
+    if (!countMethod || !itemMethod) {
+        if (error) *error = "未找到 List 访问方法";
+        return false;
+    }
+    void* countPtr = Il2Cpp_MethodPointer(countMethod);
+    void* itemPtr = Il2Cpp_MethodPointer(itemMethod);
+    if (!countPtr || !itemPtr) {
+        if (error) *error = "List 方法指针为空";
+        return false;
+    }
+
+    int count = 0;
+    if (!SafeInvoke([&]() { count = ((int(*)(void*))countPtr)(list); }, error)) return false;
+    int unlocked = 0;
+    for (int i = 0; i < count; i++) {
+        void* idObject = NULL;
+        if (!SafeInvoke([&]() { idObject = ((void*(*)(void*, int))itemPtr)(list, i); }, error)) continue;
+        std::string id = Il2Cpp_StringToUtf8(idObject);
+        if (id.empty()) continue;
+        void* idString = Il2Cpp_StringNew(id.c_str());
+        if (!idString) continue;
+        if (SafeInvoke([&]() { ((void(*)(void*))finishPtr)(idString); }, NULL)) unlocked++;
+    }
+
+    void* check = Il2Cpp_Method(kGameImage, "GameData.RunTime.Common.AchievementSystem",
+                                "DataBaseAchievement", "CheckAllAchievement", 0);
+    if (check && Il2Cpp_MethodIsStatic(check)) {
+        void* checkPtr = Il2Cpp_MethodPointer(check);
+        if (checkPtr) SafeInvoke([&]() { ((void(*)())checkPtr)(); }, NULL);
+    }
+
+    CoreLog("achievement unlock all: %d/%d", unlocked, count);
+    if (unlocked == 0) {
+        if (error) *error = "没有解锁任何成就";
+        return false;
+    }
+    return true;
+}
 }
 
 bool Special_Call(const std::string& key, int value, int value2, const std::string& text,
                   std::string* error)
 {
+    if (key == "ach_unlock_all") {
+        return UnlockAllAchievements(error);
+    }
+
     const Def* def = Find(key);
     if (!def) {
         if (error) *error = "未知特殊功能 " + key;
@@ -167,30 +281,31 @@ bool Special_Call(const std::string& key, int value, int value2, const std::stri
         }
     }
 
-    switch (def->arg) {
-        case A_NONE:
-            ((void(*)())fn)();
-            break;
-        case A_INT:
-            ((void(*)(int))fn)(value);
-            break;
-        case A_BOOL:
-            ((void(*)(bool))fn)(value != 0);
-            break;
-        case A_STRING:
-        case A_STRING_FIXED:
-            ((void(*)(void*))fn)(str);
-            break;
-        case A_INT_FIXED:
-            ((void(*)(int, int))fn)(value, def->fixedInt);
-            break;
-        case A_BOOL_FIXED:
-            ((void(*)(bool))fn)(def->fixedInt != 0);
-            break;
-        default:
-            if (error) *error = "未知参数类型";
-            return false;
-    }
+    bool ok = SafeInvoke([&]() {
+        switch (def->arg) {
+            case A_NONE:
+                ((void(*)())fn)();
+                break;
+            case A_INT:
+                ((void(*)(int))fn)(value);
+                break;
+            case A_BOOL:
+                ((void(*)(bool))fn)(value != 0);
+                break;
+            case A_STRING:
+            case A_STRING_FIXED:
+                ((void(*)(void*))fn)(str);
+                break;
+            case A_INT_FIXED:
+                ((void(*)(int, int))fn)(value, def->fixedInt);
+                break;
+            case A_BOOL_FIXED:
+                ((void(*)(bool))fn)(def->fixedInt != 0);
+                break;
+            default:
+                break;
+        }
+    }, error);
     (void)value2;
-    return true;
+    return ok;
 }

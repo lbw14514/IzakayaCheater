@@ -113,7 +113,7 @@ bool CommandLocked(const std::string& command, std::string* reply, std::string* 
         return false;
     }
     std::string line;
-    if (!ReadLine(g_pipe, line, 15000)) {
+    if (!ReadLine(g_pipe, line, 60000)) {
         if (error) *error = "读取管道超时";
         ClosePipeLocked();
         return false;
