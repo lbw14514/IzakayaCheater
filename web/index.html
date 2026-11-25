@@ -40,6 +40,7 @@
           <button class="nav-btn active" type="button" role="tab" aria-selected="true" data-target="live">常用功能</button>
           <button class="nav-btn" type="button" role="tab" aria-selected="false" data-target="bond">好感度</button>
           <button class="nav-btn" type="button" role="tab" aria-selected="false" data-target="boss">强开战斗</button>
+          <button class="nav-btn" type="button" role="tab" aria-selected="false" data-target="special">特殊功能</button>
           <button class="nav-btn" type="button" role="tab" aria-selected="false" data-target="settings">设置</button>
         </nav>
         <div class="proc-status">
@@ -108,6 +109,18 @@
           <div class="row">
             <button class="btn accent" id="btnBossRun" disabled>执行</button>
           </div>
+        </section>
+
+        <section class="card" data-page="special" hidden>
+          <div class="card-head">
+            <h2>特殊功能</h2>
+            <span class="tag tag-warn">实验性</span>
+          </div>
+          <div class="experimental-note">
+            全部为实验性功能 尚未逐项实机验证
+            场景不对可能失败或崩溃 必须先备份存档 不建议在正式存档上使用
+          </div>
+          <div id="specialGroups" class="special-groups"></div>
         </section>
 
         <section class="card" data-page="settings" hidden>

@@ -35,7 +35,8 @@ add_library(IzakayaCheatCore SHARED
     core/il2cpp_api.cpp
     core/ipc_server.cpp
     core/log.cpp
-    core/main_thread.cpp)
+    core/main_thread.cpp
+    core/special_actions.cpp)
 
 target_include_directories(IzakayaCheatCore PRIVATE
     ${PROJECT_SOURCE_DIR}

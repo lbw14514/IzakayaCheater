@@ -18,6 +18,7 @@ typedef void (*Il2CppFieldStaticGetValueFn)(void*, void*);
 typedef void (*Il2CppFieldStaticSetValueFn)(void*, void*);
 typedef void (*Il2CppGcFn)();
 typedef void* (*Il2CppArrayNewFn)(void*, size_t);
+typedef void* (*Il2CppStringNewFn)(const char*);
 
 struct Il2CppApi
 {
@@ -38,6 +39,7 @@ struct Il2CppApi
     Il2CppGcFn gc_disable;
     Il2CppGcFn gc_enable;
     Il2CppArrayNewFn array_new;
+    Il2CppStringNewFn string_new;
 };
 
 bool Il2Cpp_Load(std::string* error);
@@ -54,3 +56,4 @@ int Il2Cpp_FieldOffset(void* field);
 void Il2Cpp_GcDisable();
 void Il2Cpp_GcEnable();
 void* Il2Cpp_ArrayNew(void* elementClass, size_t length);
+void* Il2Cpp_StringNew(const char* text);

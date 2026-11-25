@@ -10,7 +10,7 @@ function readAutoAttach() {
   }
 }
 
-const state = { slot: null, boss: 0, method: 'B', busy: false, page: 'live', attachBusy: false, autoAttach: readAutoAttach() };
+const state = { slot: null, boss: 0, method: 'B', busy: false, page: 'live', attachBusy: false, specialBusy: false, autoAttach: readAutoAttach() };
 let bosses = [];
 const LIVE_CATEGORIES = [
   ['badges', '徽章'],
@@ -1041,12 +1041,245 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && $('modalMask').classList.contains('show')) closeModal(false);
 });
 
+const SPECIAL_GROUPS = [
+  {
+    title: '白天调试',
+    note: '先点注册调试方法 白天场景使用 场景不对会失败',
+    actions: [
+      { key: 'day_register', label: '注册调试方法' },
+      { key: 'day_add_exp', label: '增加经验', arg: 'int', default: 10000 },
+      { key: 'day_max_resources', label: '最大资源' },
+      { key: 'day_random_resources', label: '随机资源' },
+      { key: 'day_test_resources', label: '测试资源' },
+      { key: 'day_silver_frog', label: '银蛙币', arg: 'int', default: 10 },
+      { key: 'day_unlock_special', label: '解锁特殊客和地图' },
+      { key: 'day_unlock_music', label: '解锁全部音乐' },
+      { key: 'day_next_day', label: '跳到下一天', danger: true },
+      { key: 'day_set_days', label: '设置天数', arg: 'int', default: 1, danger: true },
+      { key: 'day_add_days', label: '增加天数', arg: 'int', default: 1, danger: true },
+      { key: 'day_warp_hours', label: '快进小时', arg: 'int', default: 1 },
+      { key: 'day_warp_actions', label: '快进行动', arg: 'int', default: 1 },
+      { key: 'day_clear_ing', label: '清空食材', danger: true },
+      { key: 'day_clear_bev', label: '清空酒水', danger: true },
+      { key: 'day_clear_items', label: '清空道具', danger: true },
+      { key: 'day_start_missions', label: '开始全部任务', danger: true },
+      { key: 'day_finish_all', label: '完成全部事件任务', danger: true },
+      { key: 'day_refresh_collectable', label: '刷新采集点' },
+      { key: 'day_reset_collectable_cd', label: '重置采集冷却' },
+      { key: 'day_refresh_npc', label: '刷新 NPC' },
+      { key: 'day_goto_kourindou', label: '前往香霖堂', danger: true },
+      { key: 'day_restock_kourindou', label: '香霖堂补货' },
+      { key: 'day_invite_tewi', label: '邀请帝' },
+      { key: 'day_money_box', label: '博丽钱箱捐款', arg: 'int', default: 1000 },
+      { key: 'day_multi_partner', label: '多伙伴模式', arg: 'bool' },
+      { key: 'day_max_partner', label: '伙伴数量', arg: 'int', default: 4 },
+      { key: 'day_roguelike', label: '进入 RogueLike', danger: true },
+      { key: 'day_reimu_spell', label: '灵梦符卡' },
+      { key: 'day_challenge_lv1', label: '白玉楼挑战 1', danger: true },
+      { key: 'day_challenge_lv2', label: '白玉楼挑战 2', danger: true },
+      { key: 'day_challenge_final', label: '白玉楼最终挑战', danger: true },
+      { key: 'day_weird_cooking', label: '奇怪料理挑战', danger: true },
+      { key: 'day_festival_music', label: '祭祀音乐挑战', danger: true },
+      { key: 'day_festival_cooking', label: '祭祀料理挑战', danger: true },
+      { key: 'day_creators_box', label: '创作者盒子' },
+      { key: 'day_panel1', label: '无限选择面板 1' },
+      { key: 'day_panel2', label: '无限选择面板 2' },
+      { key: 'day_panel3', label: '无限选择面板 3' },
+      { key: 'day_collider', label: '玩家碰撞体', arg: 'bool', danger: true },
+      { key: 'day_input', label: '玩家输入', arg: 'bool', danger: true }
+    ]
+  },
+  {
+    title: '夜间调试',
+    note: '夜间场景使用 生成客人和 QTE 需要对应场景',
+    actions: [
+      { key: 'night_register', label: '注册调试方法' },
+      { key: 'night_cheated_buff', label: '作弊 Buff' },
+      { key: 'night_eternity_fever', label: '永久 Fever' },
+      { key: 'night_remove_buffs', label: '移除全部 Buff' },
+      { key: 'night_free_cook', label: '免费烹饪秒数', arg: 'int', default: 60 },
+      { key: 'night_income_add', label: '营业收入增加', arg: 'int', default: 1000 },
+      { key: 'night_income_set', label: '营业收入设置', arg: 'int', default: 1000 },
+      { key: 'night_combo_add', label: '连击增加', arg: 'int', default: 10 },
+      { key: 'night_combo_set', label: '连击设置', arg: 'int', default: 10 },
+      { key: 'night_modify_time', label: '修改营业时间', arg: 'int', default: 60 },
+      { key: 'night_refill_bev', label: '补充酒水' },
+      { key: 'night_refill_ing', label: '补充食材' },
+      { key: 'night_refill_food', label: '补充料理' },
+      { key: 'night_spawn_normal', label: '生成普通客' },
+      { key: 'night_spawn_special', label: '生成特殊客' },
+      { key: 'night_pay_leave', label: '全部付款离开' },
+      { key: 'night_qte_random', label: '随机 QTE' },
+      { key: 'night_qte_throw', label: '投掷上菜 QTE' },
+      { key: 'night_qte_patient', label: '耐心 QTE' },
+      { key: 'night_qte_finish', label: '立即吃完 QTE' },
+      { key: 'night_passion_up', label: '提升气氛' },
+      { key: 'night_passion_down', label: '降低气氛' },
+      { key: 'night_throw_deliver', label: '投递上菜', arg: 'int', default: 1 },
+      { key: 'night_fever', label: 'Fever', arg: 'int', default: 1 }
+    ]
+  },
+  {
+    title: '地图传送',
+    note: '仅白天场景有效 传送会改变场景状态',
+    actions: [
+      { key: 'map_beast_forest', label: '兽道', arg: 'fixed', text: 'BeastForest' },
+      { key: 'map_human_village', label: '人里', arg: 'fixed', text: 'HumanVillage' },
+      { key: 'map_hakurei_shrine', label: '博丽神社', arg: 'fixed', text: 'HakureiShrine' },
+      { key: 'map_scarlet_mansion', label: '红魔馆', arg: 'fixed', text: 'ScarletMansion' },
+      { key: 'map_bamboo_forest', label: '竹林', arg: 'fixed', text: 'BambooForest' },
+      { key: 'map_hakugyokurou', label: '白玉楼', arg: 'fixed', text: 'Hakugyokurou' },
+      { key: 'map_youkai_mountain', label: '妖怪之山', arg: 'fixed', text: 'YoukaiMountain' },
+      { key: 'map_magic_forest', label: '魔法森林', arg: 'fixed', text: 'MagicForest' },
+      { key: 'map_former_hell', label: '旧地狱', arg: 'fixed', text: 'FormerHell' },
+      { key: 'map_myouren_temple', label: '命莲寺', arg: 'fixed', text: 'MyourenTemple' },
+      { key: 'map_garden_of_the_sun', label: '太阳花田', arg: 'fixed', text: 'GardenOfTheSun' },
+      { key: 'map_flandre_home', label: '红魔馆地下', arg: 'fixed', text: 'FlandreHome' }
+    ]
+  },
+  {
+    title: '全局',
+    note: '场景切换和日志操作 实验性',
+    actions: [
+      { key: 'global_console_on', label: '开启内置调试控制台' },
+      { key: 'global_console_off', label: '关闭内置调试控制台' },
+      { key: 'global_goto_main', label: '回到主菜单', danger: true },
+      { key: 'global_goto_empty', label: '进入空场景', danger: true },
+      { key: 'global_export', label: '导出存档和日志' },
+      { key: 'global_open_log', label: '打开日志目录' },
+      { key: 'main_test_result', label: '测试结算场景', danger: true }
+    ]
+  },
+  {
+    title: 'Steam 成就（危险）',
+    note: '会永久修改 Steam 成就 可能违反 Steam 服务条款 且无法撤销',
+    danger: true,
+    actions: [
+      { key: 'ach_check_all', label: '检查全部成就条件', danger: true },
+      { key: 'ach_finish', label: '解锁指定成就 ID', arg: 'text', placeholder: 'Achievement_1_1stPlay', danger: true },
+      { key: 'ach_finish_check', label: '解锁并检查指定 ID', arg: 'text', placeholder: 'Achievement_1_1stPlay', danger: true }
+    ]
+  }
+];
+
+function renderSpecialGroups() {
+  const root = $('specialGroups');
+  if (!root) return;
+  root.innerHTML = '';
+  SPECIAL_GROUPS.forEach((group) => {
+    const section = document.createElement('div');
+    section.className = 'special-group' + (group.danger ? ' danger' : '');
+
+    const head = document.createElement('div');
+    head.className = 'special-group-head';
+    const title = document.createElement('h3');
+    title.textContent = group.title;
+    head.appendChild(title);
+    if (group.danger) {
+      const tag = document.createElement('span');
+      tag.className = 'tag tag-warn';
+      tag.textContent = '危险';
+      head.appendChild(tag);
+    }
+    section.appendChild(head);
+
+    if (group.note) {
+      const note = document.createElement('p');
+      note.className = 'special-group-note';
+      note.textContent = group.note;
+      section.appendChild(note);
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'special-actions';
+    group.actions.forEach((action) => {
+      const row = document.createElement('div');
+      row.className = 'special-action' + (action.danger ? ' danger' : '');
+
+      if (action.arg === 'int') {
+        const input = document.createElement('input');
+        input.className = 'input';
+        input.type = 'number';
+        input.value = String(action.default ?? 0);
+        input.setAttribute('aria-label', action.label + ' 数值');
+        row.appendChild(input);
+      } else if (action.arg === 'text') {
+        const input = document.createElement('input');
+        input.className = 'input';
+        input.type = 'text';
+        input.placeholder = action.placeholder || '';
+        input.setAttribute('aria-label', action.label + ' 文本');
+        row.appendChild(input);
+      } else if (action.arg === 'bool') {
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.checked = Boolean(action.default);
+        input.setAttribute('aria-label', action.label + ' 启用');
+        row.appendChild(input);
+      }
+
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'btn';
+      button.textContent = action.label;
+      button.addEventListener('click', () => runSpecialAction(action, row));
+      row.appendChild(button);
+      actions.appendChild(row);
+    });
+    section.appendChild(actions);
+    root.appendChild(section);
+  });
+}
+
+async function runSpecialAction(action, row) {
+  if (state.specialBusy) return;
+  let value = 0;
+  let text = '';
+  if (action.arg === 'int') {
+    const input = row.querySelector('input[type="number"]');
+    value = Number.parseInt(input ? input.value : '0', 10) || 0;
+  } else if (action.arg === 'bool') {
+    const input = row.querySelector('input[type="checkbox"]');
+    value = input && input.checked ? 1 : 0;
+  } else if (action.arg === 'text') {
+    const input = row.querySelector('input[type="text"]');
+    text = input ? input.value.trim() : '';
+    if (!text) {
+      toast('请填写成就 ID', 'err');
+      return;
+    }
+  } else if (action.arg === 'fixed') {
+    text = action.text || '';
+  }
+
+  if (action.danger) {
+    const isAchievement = action.key.startsWith('ach_');
+    const message = isAchievement
+      ? '会永久修改 Steam 成就 可能违反 Steam 服务条款 且无法撤销 是否继续'
+      : '这是实验性危险操作 可能修改存档或切换场景 可能失败或崩溃 是否继续';
+    const ok = await confirmBox('危险操作', message);
+    if (!ok) return;
+  }
+
+  state.specialBusy = true;
+  try {
+    const res = await api('/api/special', { key: action.key, value, value2: 0, text });
+    if (!res.ok) throw new Error(res.msg || '执行失败');
+    toast('已执行 ' + action.label, 'ok');
+  } catch (e) {
+    toast('执行失败 ' + e.message, 'err');
+  } finally {
+    state.specialBusy = false;
+  }
+}
+
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 
 (async function init() {
   window.scrollTo(0, 0);
   renderLiveCategories();
   renderFeatureSwitches();
+  renderSpecialGroups();
   enhanceSelect($('bossSelect'));
   enhanceSelect($('bossMethod'));
   enhanceSelect($('bondLevel'));

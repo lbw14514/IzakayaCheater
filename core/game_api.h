@@ -16,6 +16,7 @@ bool Game_SetTimeScale(float value, std::string* error);
 bool Game_Obtain(const std::string& category, std::string* error);
 bool Game_CheckObtain(const std::string& category, std::string* error);
 bool Game_SetFeature(const std::string& key, bool enabled, float value, std::string* error);
+bool Game_Special(const std::string& key, int value, int value2, const std::string& text, std::string* error);
 std::string Game_FeatureReadiness();
 std::string Game_FeatureStates();
 std::string Game_FeatureValues();

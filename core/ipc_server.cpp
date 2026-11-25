@@ -164,6 +164,23 @@ static std::string HandleCommand(const std::string& command)
         return Ok(enabled ? "on" : "off");
     }
 
+    if (head == "SPECIAL") {
+        char key[64] = {0};
+        int value = 0;
+        int value2 = 0;
+        int consumed = 0;
+        int parsed = sscanf(rest.c_str(), "%63s %d %d%n", key, &value, &value2, &consumed);
+        if (parsed < 1) return Err("参数不足");
+        std::string text;
+        if (consumed > 0 && (size_t)consumed < rest.size()) {
+            text = rest.substr(consumed);
+            while (!text.empty() && text[0] == ' ') text.erase(0, 1);
+        }
+        std::string error;
+        if (!Game_Special(key, value, value2, text, &error)) return Err(error);
+        return Ok("special");
+    }
+
     if (head == "OBTAIN") {
         std::string error;
         if (!Game_Obtain(rest, &error)) return Err(error);

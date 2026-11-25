@@ -1,6 +1,7 @@
 #include "game_api.h"
 #include "features.h"
 #include "il2cpp_api.h"
+#include "special_actions.h"
 #include "log.h"
 #include "main_thread.h"
 #include <atomic>
@@ -624,4 +625,26 @@ void Game_DisableFeatures()
     if (!g_featuresInitAttempted) return;
     std::string error;
     MainThread_Run([]() { Features_DisableAll(); }, 3000, &error);
+}
+
+bool Game_Special(const std::string& key, int value, int value2, const std::string& text, std::string* error)
+{
+    if (!Game_EnsureResolved(error)) return false;
+
+    struct State { bool ok; std::string error; State() : ok(false) {} };
+    std::shared_ptr<State> state = std::make_shared<State>();
+    std::string localError;
+    if (!MainThread_Run([state, key, value, value2, text]() {
+            if (!Il2Cpp_Load(&state->error)) return;
+            Il2Cpp_Attach();
+            state->ok = Special_Call(key, value, value2, text, &state->error);
+        }, 8000, &localError)) {
+        if (error) *error = localError;
+        return false;
+    }
+    if (!state->ok) {
+        if (error) *error = state->error.empty() ? "特殊功能执行失败" : state->error;
+        return false;
+    }
+    return true;
 }

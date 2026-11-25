@@ -772,6 +772,23 @@ std::string HandleApi(const std::string& rawPath, const std::string& body)
         return Result(0, "已执行");
     }
 
+    if (path == "/api/special")
+    {
+        std::string key = GetStringField(body, "key");
+        if (key.empty()) return Result(-1, "缺少功能 key");
+        int value = GetIntField(body, "value", 0);
+        int value2 = GetIntField(body, "value2", 0);
+        std::string text = GetStringField(body, "text");
+        char command[768] = {0};
+        _snprintf(command, sizeof(command) - 1, "SPECIAL %s %d %d %s",
+                  key.c_str(), value, value2, text.c_str());
+        std::string reply;
+        std::string error;
+        if (!TrainerClient_Command(command, &reply, &error)) return Result(-1, error);
+        if (reply.compare(0, 2, "OK") != 0) return Result(-1, CommandError(reply));
+        return Result(0, "已执行");
+    }
+
     return "{\"ok\":false,\"code\":-404,\"msg\":\"unknown api\"}";
 }
 

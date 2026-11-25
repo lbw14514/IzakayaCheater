@@ -915,3 +915,96 @@ kbd {
   .canvas { border-radius: 16px; padding: 20px; }
   .app { padding: 16px 16px 24px; }
 }
+
+.tag-warn {
+  color: #8a3b2f;
+  border-color: rgba(138, 59, 47, .35);
+  background: rgba(138, 59, 47, .08);
+}
+
+.experimental-note {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(138, 59, 47, .25);
+  border-radius: 10px;
+  background: rgba(138, 59, 47, .06);
+  color: #6d3a31;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.special-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.special-group {
+  padding: 12px;
+  border: 1px solid var(--panel-line);
+  border-radius: 10px;
+  background: var(--field);
+}
+
+.special-group.danger {
+  border-color: rgba(138, 59, 47, .4);
+  background: rgba(138, 59, 47, .07);
+}
+
+.special-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.special-group-head h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.special-group-note {
+  margin: 0 0 10px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.special-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 8px;
+}
+
+.special-action {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.special-action .input {
+  width: 84px;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.special-action .btn {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  font-size: 12px;
+  text-align: left;
+}
+
+.special-action.danger .btn {
+  color: #8a3b2f;
+  border-color: rgba(138, 59, 47, .35);
+}
+
+.special-action input[type="checkbox"] {
+  accent-color: #8a3b2f;
+}

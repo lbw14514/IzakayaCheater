@@ -45,6 +45,7 @@ bool Il2Cpp_Load(std::string* error)
     ok = ok && LoadProc(mod, "il2cpp_array_new", (void**)&g_api.array_new, error);
     ok = ok && LoadProc(mod, "il2cpp_gc_disable", (void**)&g_api.gc_disable, error);
     ok = ok && LoadProc(mod, "il2cpp_gc_enable", (void**)&g_api.gc_enable, error);
+    g_api.string_new = (Il2CppStringNewFn)GetProcAddress(mod, "il2cpp_string_new");
 
     if (!ok) {
         CoreLog("Il2Cpp_Load failed: %s", error ? error->c_str() : "unknown");
@@ -173,4 +174,10 @@ void* Il2Cpp_ArrayNew(void* elementClass, size_t length)
 {
     if (!g_loaded || !g_api.array_new || !elementClass) return NULL;
     return g_api.array_new(elementClass, length);
+}
+
+void* Il2Cpp_StringNew(const char* text)
+{
+    if (!g_loaded || !g_api.string_new || !text) return NULL;
+    return g_api.string_new(text);
 }
