@@ -83,8 +83,10 @@ void ParseFeatureStates(const std::string& reply, std::string* out)
     size_t pos = reply.find(" states=");
     if (pos == std::string::npos) return;
     pos += 8;
-    size_t end = reply.find(' ', pos);
-    *out = reply.substr(pos, end == std::string::npos ? std::string::npos : end - pos);
+    size_t end = reply.find(" values=", pos);
+    if (end == std::string::npos) end = reply.size();
+    *out = reply.substr(pos, end - pos);
+    while (!out->empty() && out->back() == ' ') out->erase(out->size() - 1);
 }
 
 void ParseFeatureValues(const std::string& reply, std::string* out)
@@ -93,8 +95,10 @@ void ParseFeatureValues(const std::string& reply, std::string* out)
     size_t pos = reply.find(" values=");
     if (pos == std::string::npos) return;
     pos += 8;
-    size_t end = reply.find(' ', pos);
-    *out = reply.substr(pos, end == std::string::npos ? std::string::npos : end - pos);
+    size_t end = reply.find('\n', pos);
+    if (end == std::string::npos) end = reply.size();
+    *out = reply.substr(pos, end - pos);
+    while (!out->empty() && (out->back() == ' ' || out->back() == '\r')) out->erase(out->size() - 1);
 }
 
 bool CommandLocked(const std::string& command, std::string* reply, std::string* error)
