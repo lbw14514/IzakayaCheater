@@ -636,7 +636,27 @@ std::string HandleApi(const std::string& rawPath, const std::string& body)
             return Result(0, enabled ? "已暂停" : "已恢复");
         }
 
-        return Result(-1, "未知开关");
+        static const char* kRuntimeFeatures[] = {
+            "freeze_day", "freeze_night", "max_combo", "lock_patience", "max_mood",
+            "instant_cook", "perfect_qte", "infinite_exp", "money_multiplier",
+            "pickup_multiplier", "exp_multiplier", "move_speed_multiplier", "game_speed"
+        };
+        bool runtimeAllowed = false;
+        for (size_t i = 0; i < sizeof(kRuntimeFeatures) / sizeof(kRuntimeFeatures[0]); i++)
+        {
+            if (key == kRuntimeFeatures[i]) runtimeAllowed = true;
+        }
+        if (!runtimeAllowed) return Result(-1, "未知开关");
+
+        double value = GetFloatField(body, "value", 0.0);
+        char command[160] = {0};
+        _snprintf(command, sizeof(command) - 1, "FEATURE %s %d %.4f",
+                  key.c_str(), enabled ? 1 : 0, value);
+        std::string reply;
+        std::string error;
+        if (!TrainerClient_Command(command, &reply, &error)) return Result(-1, error);
+        if (reply.compare(0, 2, "OK") != 0) return Result(-1, CommandError(reply));
+        return Result(0, enabled ? "已开启" : "已关闭");
     }
 
     if (path == "/api/selfcheck")

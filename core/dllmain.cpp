@@ -17,11 +17,18 @@ static DWORD WINAPI CoreThread(LPVOID)
     Ipc_Start();
 
     std::thread([]() {
+        bool cleaned = false;
         for (;;) {
             Sleep(1000);
             if (Ipc_ClientGone(10000)) {
-                Game_FreezeTime(false, NULL);
-                MainThread_Uninstall();
+                if (!cleaned) {
+                    Game_FreezeTime(false, NULL);
+                    Game_DisableFeatures();
+                    MainThread_Uninstall();
+                    cleaned = true;
+                }
+            } else {
+                cleaned = false;
             }
             Game_HoldFreeze();
         }

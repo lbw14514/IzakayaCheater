@@ -1,13 +1,36 @@
 cmake_minimum_required(VERSION 3.15)
-project(IzakayaCheater VERSION 0.4.3 LANGUAGES CXX RC)
+project(IzakayaCheater VERSION 0.4.3 LANGUAGES C CXX RC)
 
 configure_file(config.h.in config.h)
 
 find_package(wxWidgets 3.2 REQUIRED COMPONENTS core base)
 include(${wxWidgets_USE_FILE})
 
+add_library(minhook STATIC
+    third_party/minhook/src/buffer.c
+    third_party/minhook/src/hook.c
+    third_party/minhook/src/trampoline.c
+    third_party/minhook/src/hde/hde64.c)
+
+target_include_directories(minhook PUBLIC
+    ${PROJECT_SOURCE_DIR}/third_party/minhook/include)
+target_include_directories(minhook PRIVATE
+    ${PROJECT_SOURCE_DIR}/third_party/minhook/src
+    ${PROJECT_SOURCE_DIR}/third_party/minhook/src/hde)
+
+set_target_properties(minhook PROPERTIES
+    C_STANDARD 99
+    C_STANDARD_REQUIRED ON)
+
+if(MSVC)
+    target_compile_options(minhook PRIVATE /W0)
+else()
+    target_compile_options(minhook PRIVATE -w)
+endif()
+
 add_library(IzakayaCheatCore SHARED
     core/dllmain.cpp
+    core/features.cpp
     core/game_api.cpp
     core/il2cpp_api.cpp
     core/ipc_server.cpp
@@ -17,6 +40,8 @@ add_library(IzakayaCheatCore SHARED
 target_include_directories(IzakayaCheatCore PRIVATE
     ${PROJECT_SOURCE_DIR}
     ${PROJECT_SOURCE_DIR}/core)
+
+target_link_libraries(IzakayaCheatCore PRIVATE minhook)
 
 set_target_properties(IzakayaCheatCore PROPERTIES
     CXX_STANDARD 11

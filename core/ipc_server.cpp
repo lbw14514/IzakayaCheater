@@ -56,11 +56,12 @@ static std::string HandleStatus()
     std::string ignored;
     if (moneyReady) Game_GetMoney(&money, &ignored);
     if (speedReady) Game_GetTimeScale(&speed, &ignored);
-    char buf[320] = {0};
+    char buf[1024] = {0};
+    std::string features = Game_FeatureReadiness();
     _snprintf(buf, sizeof(buf) - 1,
-              "game=%d resolved=%d moneyReady=%d speedReady=%d frozen=%d money=%lld timeScale=%.4f",
+              "game=%d resolved=%d moneyReady=%d speedReady=%d frozen=%d money=%lld timeScale=%.4f features=%s",
               game ? 1 : 0, resolved ? 1 : 0, moneyReady ? 1 : 0, speedReady ? 1 : 0,
-              frozen ? 1 : 0, money, speed);
+              frozen ? 1 : 0, money, speed, features.c_str());
     return Ok(buf);
 }
 
@@ -86,12 +87,13 @@ static std::string HandleCommand(const std::string& command)
                 detail += " ";
             }
         }
-        char buf[1024] = {0};
+        char buf[2048] = {0};
+        std::string features = Game_FeatureReadiness();
         _snprintf(buf, sizeof(buf) - 1,
-                  "game=%d il2cpp=%d moneyReady=%d speedReady=%d %s%s%s",
+                  "game=%d il2cpp=%d moneyReady=%d speedReady=%d %s features=%s%s%s",
                   game ? 1 : 0, resolved ? 1 : 0,
                   Game_IsMoneyReady() ? 1 : 0, Game_IsSpeedReady() ? 1 : 0,
-                  detail.c_str(), error.empty() ? "" : " error=", error.c_str());
+                  detail.c_str(), features.c_str(), error.empty() ? "" : " error=", error.c_str());
         return Ok(buf);
     }
     if (command == "INIT") {
@@ -147,6 +149,17 @@ static std::string HandleCommand(const std::string& command)
         bool enabled = (rest == "1" || rest == "true");
         if (!Game_FreezeTime(enabled, &error)) return Err(error);
         return Ok(enabled ? "frozen" : "restored");
+    }
+
+    if (head == "FEATURE") {
+        char key[64] = {0};
+        int enabled = 0;
+        float value = 0.0f;
+        int parsed = sscanf(rest.c_str(), "%63s %d %f", key, &enabled, &value);
+        if (parsed < 2) return Err("参数不足");
+        std::string error;
+        if (!Game_SetFeature(key, enabled != 0, value, &error)) return Err(error);
+        return Ok(enabled ? "on" : "off");
     }
 
     if (head == "OBTAIN") {

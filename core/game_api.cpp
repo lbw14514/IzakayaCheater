@@ -1,4 +1,5 @@
 #include "game_api.h"
+#include "features.h"
 #include "il2cpp_api.h"
 #include "log.h"
 #include "main_thread.h"
@@ -12,13 +13,14 @@ namespace
 bool g_resolved = false;
 bool g_moneyReady = false;
 bool g_speedReady = false;
+bool g_featuresInitAttempted = false;
 
 void* g_getFund = NULL;
 void* g_setFund = NULL;
 void* g_getTimeScale = NULL;
 void* g_setTimeScale = NULL;
 std::atomic<bool> g_frozen(false);
-float g_savedTimeScale = 1.0f;
+std::atomic<float> g_savedTimeScale(1.0f);
 
 const char* kGameImage = "Assembly-CSharp.dll";
 const char* kUnityImage = "UnityEngine.CoreModule.dll";
@@ -27,6 +29,12 @@ struct GcGuard
 {
     GcGuard() { Il2Cpp_GcDisable(); }
     ~GcGuard() { Il2Cpp_GcEnable(); }
+};
+
+struct ObtainGuard
+{
+    ObtainGuard() { Features_OnObtainBegin(); }
+    ~ObtainGuard() { Features_OnObtainEnd(); }
 };
 
 bool ResolveMethod(const char* image, const char* ns, const char* cls, const char* method,
@@ -103,6 +111,16 @@ bool ResolveOnMain(std::string* error)
     g_speedReady = speed;
     g_resolved = money || speed;
 
+    std::string featureError;
+    if (!g_featuresInitAttempted) {
+        bool featuresOk = Features_Init(&featureError);
+        g_featuresInitAttempted = true;
+        if (!featuresOk && !featureError.empty()) {
+            CoreLog("features init failed: %s", featureError.c_str());
+        }
+    }
+
+
     if (!money) {
         if (error) *error = moneyError;
         CoreLog("money resolve failed: %s", moneyError.c_str());
@@ -137,7 +155,7 @@ bool Game_IsSpeedReady()
 
 bool Game_EnsureResolved(std::string* error)
 {
-    if (g_moneyReady && g_speedReady) return true;
+    if (g_moneyReady && g_speedReady && g_featuresInitAttempted) return true;
     if (!Il2Cpp_GameAssemblyLoaded()) {
         if (error) *error = "GameAssembly.dll 未加载 游戏可能还在启动";
         return false;
@@ -260,18 +278,23 @@ bool Game_SetTimeScale(float value, std::string* error)
         return false;
     }
 
-    struct State { bool done; State() : done(false) {} };
+    struct State { bool done; bool ok; std::string error; State() : done(false), ok(false) {} };
     std::shared_ptr<State> state = std::make_shared<State>();
     std::string localError;
     if (!MainThread_Run([state, ptr, value]() {
-            ((void(*)(float))ptr)(value);
+            state->ok = Features_SetBaseTimeScale(value, &state->error);
+            if (!state->ok) {
+                ((void(*)(float))ptr)(value);
+                state->error.clear();
+                state->ok = true;
+            }
             state->done = true;
         }, 3000, &localError)) {
         if (error) *error = localError;
         return false;
     }
-    if (!state->done) {
-        if (error) *error = "写入游戏速度失败";
+    if (!state->done || !state->ok) {
+        if (error) *error = state->error.empty() ? "写入游戏速度失败" : state->error;
         return false;
     }
     return true;
@@ -292,35 +315,39 @@ bool Game_FreezeTime(bool enabled, std::string* error)
 
     if (enabled) {
         if (g_frozen.load()) return true;
-        bool done = false;
+        struct State { bool done; float saved; State() : done(false), saved(1.0f) {} };
+        std::shared_ptr<State> state = std::make_shared<State>();
         std::string localError;
-        if (!MainThread_Run([&]() {
-                g_savedTimeScale = ((float(*)())getPtr)();
+        if (!MainThread_Run([state, getPtr, setPtr]() {
+                state->saved = Features_UnscaleTimeScale(((float(*)())getPtr)());
                 ((void(*)(float))setPtr)(0.0f);
-                done = true;
+                state->done = true;
             }, 3000, &localError)) {
             if (error) *error = localError;
             return false;
         }
-        if (!done) {
+        if (!state->done) {
             if (error) *error = "暂停时间失败";
             return false;
         }
+        g_savedTimeScale.store(state->saved);
         g_frozen = true;
         return true;
     }
 
     if (!g_frozen.exchange(false)) return true;
-    bool done = false;
+    float saved = g_savedTimeScale.load();
+    struct State { bool done; State() : done(false) {} };
+    std::shared_ptr<State> state = std::make_shared<State>();
     std::string localError;
-    if (!MainThread_Run([&]() {
-            ((void(*)(float))setPtr)(g_savedTimeScale);
-            done = true;
+    if (!MainThread_Run([state, setPtr, saved]() {
+            ((void(*)(float))setPtr)(saved);
+            state->done = true;
         }, 3000, &localError)) {
         if (error) *error = localError;
         return false;
     }
-    if (!done) {
+    if (!state->done) {
         if (error) *error = "恢复时间失败";
         return false;
     }
@@ -391,6 +418,8 @@ bool Game_Obtain(const std::string& category, std::string* error)
     if (!MainThread_Run([state, debugDef, dbDef, methodName, category]() {
             if (!Il2Cpp_Load(&state->error)) return;
             Il2Cpp_Attach();
+            ObtainGuard obtainGuard;
+
 
             if (debugDef) {
                 void* mi = Il2Cpp_Method(kGameImage, "PrototypingManagers", "DaySceneDebugImpl", debugDef->method, 0);
@@ -501,44 +530,88 @@ bool Game_CheckObtain(const std::string& category, std::string* error)
         return false;
     }
 
-    bool ok = false;
+    struct State { bool done; bool ok; std::string error; State() : done(false), ok(false) {} };
+    std::shared_ptr<State> state = std::make_shared<State>();
     std::string localError;
-    if (!MainThread_Run([&]() {
-            if (!Il2Cpp_Load(&localError)) return;
+    if (!MainThread_Run([state, debugDef, dbDef]() {
+            if (!Il2Cpp_Load(&state->error)) return;
             Il2Cpp_Attach();
 
             if (debugDef) {
                 void* mi = Il2Cpp_Method(kGameImage, "PrototypingManagers", "DaySceneDebugImpl", debugDef->method, 0);
                 if (!mi) {
-                    localError = std::string("未找到 DaySceneDebugImpl.") + debugDef->method;
+                    state->error = std::string("未找到 DaySceneDebugImpl.") + debugDef->method;
                     return;
                 }
                 if (!Il2Cpp_MethodIsStatic(mi)) {
-                    localError = std::string(debugDef->method) + " 不是静态方法";
+                    state->error = std::string(debugDef->method) + " 不是静态方法";
                     return;
                 }
-                ok = true;
+                state->ok = true;
+                state->done = true;
                 return;
             }
 
             void* getAll = Il2Cpp_Method(kGameImage, "GameData.Core.Collections", "DataBaseCore", dbDef->getAll, 0);
             void* inRange = Il2Cpp_Method(kGameImage, "GameData.RunTime.Common", "RunTimeStorage", dbDef->inRange, dbDef->hasBool ? 2 : 1);
             if (!getAll || !inRange) {
-                localError = std::string("未找到 ") + dbDef->getAll + " 或 " + dbDef->inRange;
+                state->error = std::string("未找到 ") + dbDef->getAll + " 或 " + dbDef->inRange;
                 return;
             }
             if (!Il2Cpp_MethodIsStatic(getAll) || !Il2Cpp_MethodIsStatic(inRange)) {
-                localError = std::string(dbDef->getAll) + " 或 " + dbDef->inRange + " 不是静态方法";
+                state->error = std::string(dbDef->getAll) + " 或 " + dbDef->inRange + " 不是静态方法";
                 return;
             }
-            ok = true;
-        }, 5000, error)) {
+            state->ok = true;
+            state->done = true;
+        }, 5000, &localError)) {
         return false;
     }
 
-    if (!ok) {
-        if (error) *error = localError.empty() ? "检查失败" : localError;
+    if (!state->done || !state->ok) {
+        if (error) *error = state->error.empty() ? "检查失败" : state->error;
         return false;
     }
     return true;
+}
+
+bool Game_SetFeature(const std::string& key, bool enabled, float value, std::string* error)
+{
+    if (key == "freeze_time") return Game_FreezeTime(enabled, error);
+    if (!Game_EnsureResolved(error)) return false;
+    if (!Features_IsKnown(key)) {
+        if (error) *error = "未知开关 " + key;
+        return false;
+    }
+    if (!Features_Ready(key)) {
+        if (error) *error = "功能未就绪 " + key;
+        return false;
+    }
+
+    struct State { bool ok; std::string error; State() : ok(false) {} };
+    std::shared_ptr<State> state = std::make_shared<State>();
+    std::string localError;
+    if (!MainThread_Run([state, key, enabled, value]() {
+            state->ok = Features_Set(key, enabled, value, &state->error);
+        }, 5000, &localError)) {
+        if (error) *error = localError;
+        return false;
+    }
+    if (!state->ok) {
+        if (error) *error = state->error.empty() ? "设置失败" : state->error;
+        return false;
+    }
+    return true;
+}
+
+std::string Game_FeatureReadiness()
+{
+    return Features_Readiness();
+}
+
+void Game_DisableFeatures()
+{
+    if (!g_featuresInitAttempted) return;
+    std::string error;
+    MainThread_Run([]() { Features_DisableAll(); }, 3000, &error);
 }
