@@ -232,8 +232,9 @@ void Hook_SendToStorage(void* product, bool show)
 int Hook_RealTimeCountDown(void* self)
 {
     if (self) {
-        if (g_on[F_FREEZE_NIGHT].load(std::memory_order_relaxed) && g_offShouldTimeFlow >= 0) {
-            WriteAt<unsigned char>(self, g_offShouldTimeFlow, 0);
+        if (g_offShouldTimeFlow >= 0) {
+            WriteAt<unsigned char>(self, g_offShouldTimeFlow,
+                                   g_on[F_FREEZE_NIGHT].load(std::memory_order_relaxed) ? 0 : 1);
         }
         if (g_on[F_MAX_COMBO].load(std::memory_order_relaxed) && g_offCurrentCombo >= 0) {
             if (ReadAt<int>(self, g_offCurrentCombo) < 899) {
