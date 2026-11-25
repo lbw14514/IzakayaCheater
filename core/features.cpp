@@ -217,12 +217,13 @@ void Hook_SendToStorage(void* product, bool show)
     if (g_on[F_PICKUP_MULT].load(std::memory_order_relaxed) && product &&
         !g_skipItemMultiplier.load(std::memory_order_relaxed) &&
         g_offProductType >= 0 && g_offProductAmount >= 0) {
-        int type = ReadAt<int>(product, g_offProductType);
+        unsigned char* productData = (unsigned char*)product - 0x10;
+        int type = ReadAt<int>(productData, g_offProductType);
         if (type == 0 || type == 1 || type == 2 || type == 3 || type == 5) {
-            int amount = ReadAt<int>(product, g_offProductAmount);
+            int amount = ReadAt<int>(productData, g_offProductAmount);
             if (amount > 0 && amount < 99999) {
                 float multiplier = g_value[F_PICKUP_MULT].load(std::memory_order_relaxed);
-                WriteAt<int>(product, g_offProductAmount, ScaleInt(amount, multiplier, 99999));
+                WriteAt<int>(productData, g_offProductAmount, ScaleInt(amount, multiplier, 99999));
             }
         }
     }
