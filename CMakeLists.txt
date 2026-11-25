@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.15)
 project(IzakayaCheater VERSION 0.6.2 LANGUAGES C CXX RC)
 
+include(CTest)
+
 configure_file(config.h.in config.h)
 
 find_package(wxWidgets 3.2 REQUIRED COMPONENTS core base)
@@ -124,4 +126,21 @@ if(MSVC)
     target_compile_options(IzakayaCheater PRIVATE /W4 /utf-8)
 else()
     target_compile_options(IzakayaCheater PRIVATE -Wall -Wextra)
+endif()
+
+if(BUILD_TESTING)
+    add_executable(save_editor_byte_test
+        tests/save_editor_byte_test.cpp
+        backup_manager.cpp
+        json_lite.cpp
+        save_editor.cpp)
+    target_include_directories(save_editor_byte_test PRIVATE
+        ${PROJECT_SOURCE_DIR})
+    target_link_libraries(save_editor_byte_test PRIVATE bcrypt advapi32 shell32)
+    set_target_properties(save_editor_byte_test PROPERTIES
+        CXX_STANDARD 17
+        CXX_STANDARD_REQUIRED ON
+        CXX_EXTENSIONS OFF)
+    add_test(NAME save_editor_byte
+        COMMAND save_editor_byte_test "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source.memory")
 endif()
