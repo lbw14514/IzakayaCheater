@@ -56,12 +56,13 @@ static std::string HandleStatus()
     std::string ignored;
     if (moneyReady) Game_GetMoney(&money, &ignored);
     if (speedReady) Game_GetTimeScale(&speed, &ignored);
-    char buf[1024] = {0};
+    char buf[2048] = {0};
     std::string features = Game_FeatureReadiness();
+    std::string states = Game_FeatureStates();
     _snprintf(buf, sizeof(buf) - 1,
-              "game=%d resolved=%d moneyReady=%d speedReady=%d frozen=%d money=%lld timeScale=%.4f features=%s",
+              "game=%d resolved=%d moneyReady=%d speedReady=%d frozen=%d money=%lld timeScale=%.4f features=%s states=%s",
               game ? 1 : 0, resolved ? 1 : 0, moneyReady ? 1 : 0, speedReady ? 1 : 0,
-              frozen ? 1 : 0, money, speed, features.c_str());
+              frozen ? 1 : 0, money, speed, features.c_str(), states.c_str());
     return Ok(buf);
 }
 

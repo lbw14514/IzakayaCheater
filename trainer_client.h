@@ -11,6 +11,7 @@ struct TrainerStatus
     bool frozen;
     long long money;
     float timeScale;
+    std::string featureStates;
     std::string error;
 
     TrainerStatus() : gameRunning(false), attached(false), resolved(false),

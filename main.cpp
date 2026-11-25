@@ -8,6 +8,7 @@
 #include <wx/stdpaths.h>
 
 #include <algorithm>
+#include <cstdio>
 
 static const int PREFERRED_PORT = 17845;
 static const int HOTKEY_BASE = 2001;
@@ -19,6 +20,10 @@ static const char* kHotkeyFeatures[] = {
 static const int kHotkeyKeys[] = {
     '1', '2', '3', '4', '5', '6', '7', '8', '9', '0',
     VK_OEM_MINUS, VK_OEM_PLUS, VK_OEM_PERIOD, VK_OEM_2
+};
+static const char* kHotkeyLabels[] = {
+    "Ctrl+1", "Ctrl+2", "Ctrl+3", "Ctrl+4", "Ctrl+5", "Ctrl+6", "Ctrl+7",
+    "Ctrl+8", "Ctrl+9", "Ctrl+0", "Ctrl+-", "Ctrl+=", "Ctrl+.", "Ctrl+/"
 };
 static const int kHotkeyCount = (int)(sizeof(kHotkeyFeatures) / sizeof(kHotkeyFeatures[0]));
 
@@ -103,9 +108,21 @@ CheatFrame::CheatFrame(const wxString& url)
                      wxString::FromUTF8("启动失败"), wxOK | wxICON_ERROR);
     }
 
+    wxString failedHotkeys;
     for (int i = 0; i < kHotkeyCount; i++)
     {
-        RegisterHotKey(HOTKEY_BASE + i, wxMOD_CONTROL, kHotkeyKeys[i]);
+        if (!RegisterHotKey(HOTKEY_BASE + i, wxMOD_CONTROL, kHotkeyKeys[i]))
+        {
+            failedHotkeys += wxString::FromUTF8(kHotkeyLabels[i]);
+            failedHotkeys += " ";
+        }
+    }
+    if (!failedHotkeys.IsEmpty())
+    {
+        CallAfter([failedHotkeys]() {
+            wxMessageBox(wxString::FromUTF8("以下全局快捷键被其他程序占用，未生效：\n") + failedHotkeys,
+                         wxString::FromUTF8("全局快捷键"), wxOK | wxICON_WARNING);
+        });
     }
 }
 
@@ -157,8 +174,9 @@ void CheatFrame::OnHotKey(wxKeyEvent& event)
         event.Skip();
         return;
     }
-    wxString json = wxString::Format("{\"type\":\"toggle-feature\",\"key\":\"%s\"}", kHotkeyFeatures[index]);
-    WebViewHost::PostJson(json.utf8_str().data());
+    char json[128] = {0};
+    _snprintf(json, sizeof(json) - 1, "{\"type\":\"toggle-feature\",\"key\":\"%s\"}", kHotkeyFeatures[index]);
+    WebViewHost::PostJson(json);
     event.Skip();
 }
 

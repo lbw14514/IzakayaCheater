@@ -9,5 +9,6 @@ bool Features_SetBaseTimeScale(float value, std::string* error);
 void Features_DisableAll();
 float Features_UnscaleTimeScale(float current);
 std::string Features_Readiness();
+std::string Features_States();
 void Features_OnObtainBegin();
 void Features_OnObtainEnd();

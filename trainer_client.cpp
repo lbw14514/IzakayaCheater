@@ -77,6 +77,16 @@ bool ReadLine(HANDLE pipe, std::string& reply, DWORD timeoutMs)
     }
 }
 
+void ParseFeatureStates(const std::string& reply, std::string* out)
+{
+    out->clear();
+    size_t pos = reply.find(" states=");
+    if (pos == std::string::npos) return;
+    pos += 8;
+    size_t end = reply.find(' ', pos);
+    *out = reply.substr(pos, end == std::string::npos ? std::string::npos : end - pos);
+}
+
 bool CommandLocked(const std::string& command, std::string* reply, std::string* error)
 {
     if (g_pipe == INVALID_HANDLE_VALUE) {
@@ -165,6 +175,7 @@ bool TrainerClient_Command(const std::string& command, std::string* reply, std::
 bool TrainerClient_Status(TrainerStatus* out)
 {
     if (!out) return false;
+    out->featureStates.clear();
     std::lock_guard<std::mutex> guard(g_lock);
 
     DWORD pid = 0;
@@ -264,5 +275,6 @@ bool TrainerClient_Status(TrainerStatus* out)
         out->frozen = false;
         out->error = "无法解析状态: " + reply;
     }
+    if (out->error.empty()) ParseFeatureStates(reply, &out->featureStates);
     return true;
 }

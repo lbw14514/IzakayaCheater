@@ -111,6 +111,7 @@ if(MINGW)
     target_link_options(IzakayaCheater PRIVATE -mwindows -static-libgcc -static-libstdc++)
 elseif(MSVC)
     set_target_properties(IzakayaCheater PROPERTIES WIN32_EXECUTABLE ON)
+    target_link_options(IzakayaCheater PRIVATE /MANIFEST:NO)
 endif()
 
 if(MSVC)

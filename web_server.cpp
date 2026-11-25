@@ -242,6 +242,7 @@ std::string ErrorText(int code)
         case -8: return "该存档里没有好感数据";
         case -9: return "请求数据不合法";
         case -10: return "自动备份失败，未写入存档";
+        case -11: return "编辑结果未通过 JSON 校验，已拒绝写入";
         default: return "错误代码: " + std::to_string(code);
     }
 }
@@ -382,6 +383,7 @@ std::string TrainerStatusJson()
     char speed[64] = {0};
     _snprintf(speed, sizeof(speed) - 1, "%.4f", st.timeScale);
     body += ",\"timeScale\":" + std::string(speed);
+    body += ",\"featureStates\":\"" + JsonEscape(st.featureStates) + "\"";
     body += ",\"error\":\"" + JsonEscape(st.error) + "\"}";
     return body;
 }

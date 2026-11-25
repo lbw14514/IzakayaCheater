@@ -17,4 +17,5 @@ bool Game_Obtain(const std::string& category, std::string* error);
 bool Game_CheckObtain(const std::string& category, std::string* error);
 bool Game_SetFeature(const std::string& key, bool enabled, float value, std::string* error);
 std::string Game_FeatureReadiness();
+std::string Game_FeatureStates();
 void Game_DisableFeatures();

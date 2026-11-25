@@ -652,6 +652,17 @@ std::string Features_Readiness()
     return out;
 }
 
+std::string Features_States()
+{
+    std::string out;
+    for (size_t i = 0; i < sizeof(kFeatures) / sizeof(kFeatures[0]); i++) {
+        if (!out.empty()) out += " ";
+        out += kFeatures[i].key;
+        out += g_on[kFeatures[i].id].load(std::memory_order_relaxed) ? "=1" : "=0";
+    }
+    return out;
+}
+
 void Features_OnObtainBegin()
 {
     g_skipItemMultiplier.store(true, std::memory_order_relaxed);

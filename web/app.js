@@ -450,6 +450,19 @@ async function loadTrainerStatus() {
     const attached = Boolean(st.attached);
     const freezeSwitch = document.querySelector('input[data-feature="freeze_time"]');
     if (freezeSwitch) freezeSwitch.checked = Boolean(st.frozen);
+    if (st.featureStates) {
+      const states = {};
+      st.featureStates.split(' ').forEach((item) => {
+        const parts = item.split('=');
+        if (parts.length === 2) states[parts[0]] = parts[1] === '1';
+      });
+      FEATURE_SWITCHES.forEach((feature) => {
+        if (feature.key === 'freeze_time') return;
+        if (!Object.prototype.hasOwnProperty.call(states, feature.key)) return;
+        const input = document.querySelector(`input[data-feature="${feature.key}"]`);
+        if (input) input.checked = states[feature.key];
+      });
+    }
     const moneyReady = attached && Boolean(st.moneyReady);
     const obtainReady = attached && Boolean(st.game);
     const ready = moneyReady || obtainReady;
@@ -726,6 +739,7 @@ $('btnBossRun').addEventListener('click', () => {
 });
 
 document.addEventListener('keydown', (e) => {
+  if (e.repeat) return;
   if (!e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) return;
   if (e.target && e.target.closest && e.target.closest('input:not([type="checkbox"]), textarea, select')) return;
   const index = FEATURE_HOTKEYS.findIndex((item) => item.codes.includes(e.code));

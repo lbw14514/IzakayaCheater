@@ -87,7 +87,7 @@ static char* FindArrayEnd(char* bracket)
 // Loads the whole file into a NUL-terminated buffer with FILE_SLACK bytes of
 // room for in-place edits. On failure returns NULL and sets *outLen to the
 // error code (-1 open, -2 alloc or short read).
-static char* LoadFileForEdit(const char* path, long* outLen)
+static char* LoadFileForEdit(const char* path, long* outLen, bool validate = true)
 {
     *outLen = -1;
     FILE* f = fopen(path, "rb");
@@ -102,11 +102,21 @@ static char* LoadFileForEdit(const char* path, long* outLen)
     fclose(f);
     if (bytesRead != (size_t)len) { free(buf); *outLen = -2; return NULL; }
     buf[len] = '\0';
-    std::string jsonError;
-    if (!Json_Validate(buf, (size_t)len, &jsonError)) {
-        free(buf);
-        *outLen = -3;
-        return NULL;
+    if (validate) {
+        bool valid = false;
+        try {
+            std::string jsonError;
+            valid = Json_Validate(buf, (size_t)len, &jsonError);
+        } catch (...) {
+            free(buf);
+            *outLen = -2;
+            return NULL;
+        }
+        if (!valid) {
+            free(buf);
+            *outLen = -3;
+            return NULL;
+        }
     }
     *outLen = len;
     return buf;
@@ -131,7 +141,20 @@ static bool BackupSaveFile(const char* path)
     _snprintf(name, sizeof(name) - 1, "%s.%04d%02d%02d-%02d%02d%02d-%03d.bak",
               base, st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
     std::string dst = dir + "\\" + name;
-    if (!CopyFileA(path, dst.c_str(), FALSE)) return false;
+    bool copied = false;
+    for (int attempt = 0; attempt < 20 && !copied; attempt++) {
+        std::string candidate = dst;
+        if (attempt > 0) {
+            candidate.insert(candidate.size() - 4, "-" + std::to_string(attempt));
+        }
+        if (CopyFileA(path, candidate.c_str(), TRUE)) {
+            copied = true;
+        } else {
+            DWORD err = GetLastError();
+            if (err != ERROR_FILE_EXISTS && err != ERROR_ALREADY_EXISTS) break;
+        }
+    }
+    if (!copied) return false;
 
     std::string pattern = dir + "\\" + base + ".*.bak";
     WIN32_FIND_DATAA fd;
@@ -155,8 +178,14 @@ static bool BackupSaveFile(const char* path)
 
 static int SaveEditedFile(const char* path, const char* buf, long len)
 {
-    std::string jsonError;
-    if (!Json_Validate(buf, (size_t)len, &jsonError)) return -3;
+    bool valid = false;
+    try {
+        std::string jsonError;
+        valid = Json_Validate(buf, (size_t)len, &jsonError);
+    } catch (...) {
+        return -2;
+    }
+    if (!valid) return -11;
     if (!BackupSaveFile(path)) return -10;
 
     std::string temp = std::string(path) + ".ic.tmp";
@@ -809,7 +838,7 @@ static long SetBondEntriesLevel(char* brace, char** end, const int* ids, int cou
 int SaveEditor_ListBonds(const char* path, int* ids, int* levels, int maxCount)
 {
     long len = 0;
-    char* buf = LoadFileForEdit(path, &len);
+    char* buf = LoadFileForEdit(path, &len, false);
     if (!buf) return (int)len;
 
     int total = 0;

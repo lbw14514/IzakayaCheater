@@ -3,11 +3,18 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <locale.h>
 #include <utility>
 #include <vector>
 
 namespace
 {
+_locale_t JsonNumericLocale()
+{
+    static _locale_t locale = _create_locale(LC_NUMERIC, "C");
+    return locale;
+}
+
 struct JsonValue
 {
     enum Type { Null, Bool, Number, String, Array, Object } type;
@@ -29,6 +36,7 @@ public:
         if (len >= 3 && (unsigned char)m_ptr[0] == 0xEF &&
             (unsigned char)m_ptr[1] == 0xBB && (unsigned char)m_ptr[2] == 0xBF) {
             m_ptr += 3;
+            m_start = m_ptr;
         }
     }
 
@@ -52,9 +60,14 @@ private:
 
     bool Fail(const char* message)
     {
+        return FailAt(m_ptr, message);
+    }
+
+    bool FailAt(const char* at, const char* message)
+    {
         if (m_error) {
             char buf[160] = {0};
-            snprintf(buf, sizeof(buf) - 1, "偏移 %ld: %s", (long)(m_ptr - m_start), message);
+            snprintf(buf, sizeof(buf) - 1, "偏移 %ld: %s", (long)(at - m_start), message);
             *m_error = buf;
         }
         return false;
@@ -210,9 +223,10 @@ private:
     {
         m_ptr++;
         while (m_ptr < m_end) {
+            const char* at = m_ptr;
             unsigned char c = (unsigned char)*m_ptr++;
             if (c == '"') return true;
-            if (c < 0x20) return Fail("字符串包含未转义控制字符");
+            if (c < 0x20) return FailAt(at, "字符串包含未转义控制字符");
             if (c != '\\') {
                 out.push_back((char)c);
                 continue;
@@ -274,9 +288,16 @@ private:
             if (m_ptr >= m_end || *m_ptr < '0' || *m_ptr > '9') return Fail("指数部分不合法");
             while (m_ptr < m_end && *m_ptr >= '0' && *m_ptr <= '9') m_ptr++;
         }
+        size_t tokenLength = (size_t)(m_ptr - start);
+        if (tokenLength >= 64) return Fail("数字过长");
+        char token[64] = {0};
+        memcpy(token, start, tokenLength);
+        token[tokenLength] = '\0';
         char* numberEnd = NULL;
-        double value = strtod(start, &numberEnd);
-        if (numberEnd != m_ptr || !std::isfinite(value)) return Fail("数字超出范围");
+        double value = _strtod_l(token, &numberEnd, JsonNumericLocale());
+        if (!numberEnd || numberEnd != token + tokenLength || !std::isfinite(value)) {
+            return Fail("数字超出范围");
+        }
         out.type = JsonValue::Number;
         out.number = value;
         return true;
