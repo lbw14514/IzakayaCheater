@@ -2,9 +2,9 @@
 
 bakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabaka
 
-东方夜雀食堂的存档修改器 能改金钱 开全地图 拉满好感 强开本体和 DLC1~DLC5 的 Boss 再战（所以是全部啦）
+东方夜雀食堂的存档修改器 具备有26项风灵月影具备的功能 和三项风灵月影所不具备的 分别是：客人单独改好感 强开boss战 和存档自动备份功能
 
-本人其实反对过度使用修改器的）
+本人其实反对过度使用修改器的）希望各位尽量好好享受游戏的过程哦
 
 慢慢打太累了 虽然对我来说做修改器也不轻松（？
 
@@ -46,10 +46,9 @@ ps：其实是瘾大
 下载页 [GitHub Releases](https://github.com/lbw14514/IzakayaCheater/releases)
 
 - IzakayaCheater-*-win64.zip 便携版 解压即用 推荐
-- IzakayaCheater-Setup-*.exe 安装版 未签名 浏览器或杀毒可能误报 被拦就下 ZIP
+- IzakayaCheater-Setup-*.exe 安装版 未签名 浏览器或杀毒可能误报 被拦可以下 ZIP
 
 两个包内容一样 不需要安装也能用
-发布页有 SHA256SUMS.txt 下载后先核对哈希
 
 ## 能干什么
 
@@ -57,9 +56,9 @@ ps：其实是瘾大
 |---|---|
 | 金钱 | 改 playerPartial.fund |
 | 开全地图 | 本体 6 张加 DLC 11 张共 17 张全开 同时补写 DLC 激活项 |
-| 满好感 | 所有角色等级拉到 5 经验 9999 满进度档 78 个 纯本体档 29 个 |
+| 满好感 | 所有角色（可单独）等级拉到 5 经验 9999  |
 | 强开 Boss 战 | 本体加 DLC1~5 共 6 场 |
-
+以及对标风灵月影修改器的它具备的所有26项功能
 地图和好感都重复点没事 第二次一般返回 0 或结果不变
 
 ## 强开 Boss 战
