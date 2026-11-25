@@ -185,6 +185,13 @@ void CheatFrame::OnHotKey(wxKeyEvent& event)
 
 void CheatFrame::ApplyWindowIcon()
 {
+    wxIcon resourceIcon(wxT("APP_ICON"), wxBITMAP_TYPE_ICO_RESOURCE);
+    if (resourceIcon.IsOk())
+    {
+        SetIcon(resourceIcon);
+        return;
+    }
+
     wxImage img;
     wxString path = ExecutableDir() + wxFileName::GetPathSeparator() + "web" + wxFileName::GetPathSeparator() +
                     "assets" + wxFileName::GetPathSeparator() + "game-icon.png";
