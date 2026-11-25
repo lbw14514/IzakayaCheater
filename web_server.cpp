@@ -290,6 +290,7 @@ std::string BackupsJson(int slot)
         body += ",\"time\":\"" + JsonEscape(backups[i].time) + "\"";
         body += ",\"kind\":\"" + JsonEscape(backups[i].kind) + "\"";
         body += ",\"size\":" + std::to_string(backups[i].size);
+        body += ",\"storedSize\":" + std::to_string(backups[i].storedSize);
         body += ",\"sha256\":\"" + backups[i].sha256 + "\"}";
     }
     body += "]}";

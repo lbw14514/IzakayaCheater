@@ -100,6 +100,13 @@ bool FileExists(const std::string& path)
     return GetFileAttributesA(path.c_str()) != INVALID_FILE_ATTRIBUTES;
 }
 
+unsigned long long FileSize(const std::string& path)
+{
+    WIN32_FILE_ATTRIBUTE_DATA data;
+    if (!GetFileAttributesExA(path.c_str(), GetFileExInfoStandard, &data)) return 0;
+    return ((unsigned long long)data.nFileSizeHigh << 32) | data.nFileSizeLow;
+}
+
 bool ReadAll(const std::string& path, Bytes& out, std::string* error)
 {
     FILE* file = fopen(path.c_str(), "rb");
@@ -526,7 +533,9 @@ bool MigrateLegacy(const std::string& savePath, BackupIndex& index, std::string*
         entry.sha = sha;
         index.entries.push_back(entry);
     }
-    return SaveIndex(index, error);
+    if (!SaveIndex(index, error)) return false;
+    for (const std::string& path : legacy) DeleteFileA(path.c_str());
+    return true;
 }
 
 bool EnsureIndex(const std::string& savePath, BackupIndex& index, bool createBaseline, std::string* error)
@@ -637,6 +646,7 @@ bool Backup_List(const char* savePath, std::vector<BackupEntry>& entries, std::s
         out.time = entry.time;
         out.kind = entry.kind;
         out.size = entry.size;
+        out.storedSize = FileSize(index.dir + "\\" + (entry.kind == "initial" ? kBaseName : entry.file));
         out.sha256 = entry.sha;
         entries.push_back(out);
     }

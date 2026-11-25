@@ -9,6 +9,7 @@ struct BackupEntry
     std::string time;
     std::string kind;
     unsigned long long size;
+    unsigned long long storedSize;
     std::string sha256;
 };
 

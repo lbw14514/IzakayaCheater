@@ -728,7 +728,8 @@ async function loadBackups() {
       return;
     }
 
-    desc.textContent = '共 ' + backups.length + ' 个版本 恢复前请先关闭游戏';
+    const totalStored = backups.reduce((sum, item) => sum + (Number(item.storedSize) || 0), 0);
+    desc.textContent = '共 ' + backups.length + ' 个版本 占用 ' + sizeText(totalStored) + ' 恢复前请先关闭游戏';
     backups.forEach((entry) => {
       const item = document.createElement('div');
       item.className = 'backup-item';
@@ -741,7 +742,8 @@ async function loadBackups() {
       const meta = document.createElement('div');
       meta.className = 'backup-meta';
       const kind = entry.kind === 'initial' ? '初始未修改' : entry.kind === 'full' ? '全量' : '增量';
-      meta.textContent = kind + ' · ' + sizeText(Number(entry.size) || 0);
+      const stored = Number(entry.storedSize) || 0;
+      meta.textContent = kind + ' · 占用 ' + sizeText(stored) + ' · 存档 ' + sizeText(Number(entry.size) || 0);
       info.appendChild(time);
       info.appendChild(meta);
 
