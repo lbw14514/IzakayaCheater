@@ -1,5 +1,6 @@
 #include "web_server.h"
 #include "webview_host.h"
+#include "autostart.h"
 #include <wx/wx.h>
 #include <wx/display.h>
 #include <wx/filename.h>
@@ -9,8 +10,14 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
+#include <string>
+#include <thread>
+#include <tlhelp32.h>
+#include <windows.h>
 
 static const int PREFERRED_PORT = 17845;
+static HANDLE g_uiMutex = NULL;
 #ifndef MOD_NOREPEAT
 #define MOD_NOREPEAT 0x4000
 #endif
@@ -73,6 +80,96 @@ static wxString ExecutableDir()
 {
     wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
     return exe.GetPath();
+}
+
+static bool FindGameProcess(DWORD* gamePid)
+{
+    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (snapshot == INVALID_HANDLE_VALUE) return false;
+    PROCESSENTRY32W entry;
+    ZeroMemory(&entry, sizeof(entry));
+    entry.dwSize = sizeof(entry);
+    bool found = false;
+    if (Process32FirstW(snapshot, &entry))
+    {
+        do
+        {
+            if (_wcsicmp(entry.szExeFile, L"Touhou Mystia Izakaya.exe") == 0 ||
+                _wcsicmp(entry.szExeFile, L"Izakaya.exe") == 0)
+            {
+                if (gamePid) *gamePid = entry.th32ProcessID;
+                found = true;
+                break;
+            }
+        } while (Process32NextW(snapshot, &entry));
+    }
+    CloseHandle(snapshot);
+    return found;
+}
+
+static bool TrainerProcessRunning()
+{
+    HANDLE mutex = OpenMutexA(SYNCHRONIZE, FALSE, "Local\\IzakayaCheaterUi");
+    if (!mutex) return false;
+    CloseHandle(mutex);
+    return true;
+}
+
+static bool LaunchTrainerProcess()
+{
+    std::string exe = wxStandardPaths::Get().GetExecutablePath().ToStdString();
+    if (exe.empty()) return false;
+    STARTUPINFOA si;
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&si, sizeof(si));
+    si.cb = sizeof(si);
+    si.dwFlags = STARTF_USESHOWWINDOW;
+    si.wShowWindow = SW_SHOWNORMAL;
+    ZeroMemory(&pi, sizeof(pi));
+    BOOL ok = CreateProcessA(exe.c_str(), NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
+    if (ok)
+    {
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+    }
+    return ok != FALSE;
+}
+
+static void WatcherThread()
+{
+    DWORD lastGamePid = 0;
+    while (AutoStart_Enabled())
+    {
+        DWORD gamePid = 0;
+        if (FindGameProcess(&gamePid))
+        {
+            bool trainerRunning = TrainerProcessRunning();
+            if (gamePid != lastGamePid)
+            {
+                if (!trainerRunning && LaunchTrainerProcess()) lastGamePid = gamePid;
+                else if (trainerRunning) lastGamePid = gamePid;
+            }
+        }
+        else
+        {
+            lastGamePid = 0;
+        }
+        Sleep(2000);
+    }
+    ExitProcess(0);
+}
+
+static bool StartWatcher()
+{
+    HANDLE mutex = CreateMutexA(NULL, FALSE, "Local\\IzakayaCheaterWatcher");
+    if (!mutex) return false;
+    if (GetLastError() == ERROR_ALREADY_EXISTS)
+    {
+        CloseHandle(mutex);
+        return false;
+    }
+    std::thread(WatcherThread).detach();
+    return true;
 }
 
 class CheatFrame : public wxFrame
@@ -221,6 +318,16 @@ wxIMPLEMENT_APP(MyApp);
 bool MyApp::OnInit()
 {
     wxInitAllImageHandlers();
+
+    if (wxString(GetCommandLineW()).Contains(wxT("--watch")))
+    {
+        if (!StartWatcher()) return false;
+        wxFrame* anchor = new wxFrame(NULL, wxID_ANY, wxT("IzakayaCheater"));
+        anchor->Hide();
+        return true;
+    }
+
+    g_uiMutex = CreateMutexA(NULL, FALSE, "Local\\IzakayaCheaterUi");
 
     if (!WebServer::Start(PREFERRED_PORT))
     {

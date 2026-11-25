@@ -3,6 +3,7 @@
 #include "save_editor.h"
 #include "trainer_client.h"
 #include "config.h"
+#include "autostart.h"
 
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -497,6 +498,18 @@ std::string HandleApi(const std::string& rawPath, const std::string& body)
     if (q != std::string::npos) path = path.substr(0, q);
 
     if (path == "/api/meta") return MetaJson();
+    if (path == "/api/settings")
+    {
+        return std::string("{\"ok\":true,\"autostart\":") + (AutoStart_Enabled() ? "true" : "false") + "}";
+    }
+    if (path == "/api/settings/autostart")
+    {
+        bool enabled = GetBoolField(body, "enabled", false);
+        std::string error;
+        if (!AutoStart_Set(enabled, &error)) return Result(-1, error);
+        if (enabled) AutoStart_StartWatcher();
+        return Result(0, enabled ? "已启用随游戏启动" : "已关闭随游戏启动");
+    }
     if (path == "/api/saves") return SavesJson();
     if (path == "/api/bosses") return BossesJson();
 

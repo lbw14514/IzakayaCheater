@@ -70,6 +70,11 @@
             <input id="liveMoney" class="input" inputmode="numeric" data-input="int" placeholder="金钱数">
             <button class="btn equal" id="btnLiveMoney">写入金钱</button>
           </div>
+          <div class="row">
+            <input id="saveMoney" class="input" inputmode="numeric" data-input="int" placeholder="存档金钱">
+            <button class="btn equal" id="btnSaveMoney">写入金钱（存档）</button>
+          </div>
+          <p class="desc">存档修改需要先关闭游戏 改完再重新载入存档</p>
 
           <div class="chips" id="obtainGrid"></div>
           <div class="switch-grid" id="featureSwitches"></div>
@@ -129,11 +134,11 @@
           <div class="settings-list">
             <div class="switch-row">
               <label class="switch-toggle">
-                <input type="checkbox" id="autoAttachToggle">
+                <input type="checkbox" id="autoStartToggle">
                 <span class="switch-track"><span class="switch-thumb"></span></span>
                 <span class="setting-copy">
                   <span class="switch-label">随夜雀食堂启动</span>
-                  <span class="desc">修改器已打开时 夜雀食堂启动后自动附加 关闭后需要手动附加</span>
+                  <span class="desc">登录后后台等待 夜雀食堂启动时自动打开修改器</span>
                 </span>
               </label>
             </div>

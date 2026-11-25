@@ -1,16 +1,6 @@
 const $ = (id) => document.getElementById(id);
 
-const AUTO_ATTACH_KEY = 'izakaya.autoAttach';
-
-function readAutoAttach() {
-  try {
-    return localStorage.getItem(AUTO_ATTACH_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-
-const state = { slot: null, boss: 0, method: 'B', busy: false, page: 'live', attachBusy: false, specialBusy: false, autoAttach: readAutoAttach() };
+const state = { slot: null, boss: 0, method: 'B', busy: false, page: 'live', attachBusy: false, specialBusy: false, autoAttach: true };
 let bosses = [];
 const LIVE_CATEGORIES = [
   ['badges', '徽章'],
@@ -814,17 +804,31 @@ document.querySelectorAll('.nav-btn').forEach((button) => {
 
 $('btnAttachGame').addEventListener('click', attachGame);
 
-const autoAttachToggle = $('autoAttachToggle');
-if (autoAttachToggle) {
-  autoAttachToggle.checked = state.autoAttach;
-  autoAttachToggle.addEventListener('change', () => {
-    state.autoAttach = autoAttachToggle.checked;
+const autoStartToggle = $('autoStartToggle');
+
+async function loadSettings() {
+  try {
+    const settings = await api('/api/settings');
+    if (autoStartToggle) autoStartToggle.checked = Boolean(settings.autostart);
+  } catch (e) {
+    // 设置读取失败时保持默认值
+  }
+}
+
+if (autoStartToggle) {
+  autoStartToggle.addEventListener('change', async () => {
+    const enabled = autoStartToggle.checked;
+    autoStartToggle.disabled = true;
     try {
-      localStorage.setItem(AUTO_ATTACH_KEY, state.autoAttach ? '1' : '0');
+      const res = await api('/api/settings/autostart', { enabled });
+      if (!res.ok) throw new Error(res.msg || '切换失败');
+      toast(enabled ? '已启用随游戏启动' : '已关闭随游戏启动', 'ok');
     } catch (e) {
-      // 存储失败时只影响下次启动
+      autoStartToggle.checked = !enabled;
+      toast('切换失败 ' + e.message, 'err');
+    } finally {
+      autoStartToggle.disabled = false;
     }
-    loadTrainerStatus();
   });
 }
 
@@ -874,6 +878,35 @@ $('btnLiveMoney').addEventListener('click', () => {
   }
   liveAction($('btnLiveMoney'), '/api/trainer/money', { value }, '实时改金钱',
     '会立即修改运行中游戏的金钱为 ' + value + ' 是否继续');
+});
+
+$('btnSaveMoney').addEventListener('click', async () => {
+  if (state.slot === null) {
+    toast('请先选择存档', 'err');
+    return;
+  }
+  const value = Number.parseInt($('saveMoney').value, 10);
+  if (!Number.isFinite(value) || value < 0) {
+    toast('请输入有效金额', 'err');
+    return;
+  }
+  const button = $('btnSaveMoney');
+  const ok = await confirmBox('写入存档金钱',
+    '会直接修改 Mystia#' + state.slot + ' 的存档文件 需要先关闭游戏 是否继续');
+  if (!ok) return;
+  const old = button.textContent;
+  button.disabled = true;
+  button.textContent = '处理中';
+  try {
+    const res = await api('/api/fund', { slot: state.slot, value });
+    if (!res.ok) throw new Error(res.msg || '写入失败');
+    toast(res.msg || '已写入存档', 'ok');
+  } catch (e) {
+    toast('写入失败 ' + e.message, 'err');
+  } finally {
+    button.textContent = old;
+    button.disabled = false;
+  }
 });
 
 $('obtainGrid').addEventListener('click', (e) => {
@@ -1287,6 +1320,7 @@ if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
   setPage('live');
   runAutoSelfCheck();
   try {
+    await loadSettings();
     await loadMeta();
     await loadBosses();
     await loadSaves(false);
