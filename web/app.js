@@ -167,7 +167,7 @@ const BOSS_METHODS = [
     desc: '已禁用 只往存档写 scheduledEvents 实测不触发 真正生效需要在游戏运行时调用 ScheduleEventExtern' },
   { key: 'B', label: '标记通关', endpoint: '/api/boss/clear', flag: 'hasClear',
     title: '标记通关', text: SAVE_WRITE_CONFIRM,
-    desc: '写入 finishedMissions 把最终战标记为已完成 等于跳过 需要自己去再战 不会开打' },
+    desc: '写入 finishedMissions 把最终战标记为已完成 等于跳过 需要自己去再战 不会直接开打' },
   { key: 'C', label: '邀请函', endpoint: '/api/boss/invite', flag: 'hasInvite',
     title: '邀请函', text: SAVE_WRITE_CONFIRM,
     desc: '添加邀请函物品 2014 到 2019 可在游戏内使用' }

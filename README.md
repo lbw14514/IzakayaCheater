@@ -24,7 +24,7 @@ ps：其实是瘾大
 ## 用之前
 
 > **一定先备份存档**
-> 修改器只具备写入功能 没有回滚baka们
+> 写入前会自动备份到 %LOCALAPPDATA%\IzakayaCheater\save_backups 最多 30 份 但自己再备一份更稳
 
 1. 关掉 Steam 云同步 库 右键游戏 属性 通用 取消勾选保留在云 否则改完会被云同步还原回去
 2. 只玩过本体的 开全地图 不然 DLC 地区去不了
@@ -38,6 +38,16 @@ ps：其实是瘾大
 - WebView2 运行库 Win11 自带 Win10 装了新版 Edge 也有 没有就装一下 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)
 - 打开就是界面 不用浏览器 关窗口即退出
 - 不联网 本地服务只监听 127.0.0.1
+
+## 下载
+
+下载页 [GitHub Releases](https://github.com/lbw14514/IzakayaCheater/releases)
+
+- IzakayaCheater-*-win64.zip 便携版 解压即用 推荐
+- IzakayaCheater-Setup-*.exe 安装版 未签名 浏览器或杀毒可能误报 被拦就下 ZIP
+
+两个包内容一样 不需要安装也能用
+发布页有 SHA256SUMS.txt 下载后先核对哈希
 
 ## 能干什么
 

@@ -80,6 +80,8 @@ jobs:
           cp build/WebView2Loader.dll stage/
           cp -r build/web stage/web
           cp /ucrt64/bin/libwinpthread-1.dll stage/
+          cp /ucrt64/bin/libstdc++-6.dll stage/ 2>/dev/null || true
+          cp /ucrt64/bin/libgcc_s_seh-1.dll stage/ 2>/dev/null || true
           cp "$WXLIB/wxbase32u_gcc1420UCRT_x64.dll" stage/ 2>/dev/null || true
           cp "$WXLIB/wxmsw32u_core_gcc1420UCRT_x64.dll" stage/ 2>/dev/null || true
           cd stage
@@ -93,12 +95,27 @@ jobs:
           if (-not $iscc) { throw "ISCC.exe not found" }
           & $iscc installer\installer.iss
 
+      - name: Checksums
+        shell: pwsh
+        run: |
+          $lines = @()
+          Get-ChildItem -Path . -Filter "IzakayaCheater-*.zip" | ForEach-Object {
+            $h = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLower()
+            $lines += "$h  $($_.Name)"
+          }
+          Get-ChildItem -Path dist -Filter "IzakayaCheater-Setup-*.exe" | ForEach-Object {
+            $h = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLower()
+            $lines += "$h  $($_.Name)"
+          }
+          $lines | Set-Content -LiteralPath "SHA256SUMS.txt" -Encoding ascii
+
       - name: Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: |
             IzakayaCheater-*.zip
+            SHA256SUMS.txt
             dist/IzakayaCheater-Setup-*.exe
           generate_release_notes: true
           draft: false
@@ -110,4 +127,5 @@ jobs:
           name: IzakayaCheater-win64
           path: |
             IzakayaCheater-*.zip
+            SHA256SUMS.txt
             dist/IzakayaCheater-Setup-*.exe

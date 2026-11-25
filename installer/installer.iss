@@ -29,6 +29,13 @@ OutputBaseFilename=IzakayaCheater-Setup-{#MyAppVersion}
 UninstallDisplayName={#MyAppName}
 UninstallDisplayIcon={app}\{#MyAppExeName}
 SetupLogging=yes
+VersionInfoCompany={#MyAppPublisher}
+VersionInfoDescription={#MyAppName} 安装程序
+VersionInfoProductName={#MyAppName}
+VersionInfoProductVersion={#MyAppVersion}
+VersionInfoVersion={#MyAppVersion}.0
+VersionInfoCopyright=MIT License
+VersionInfoOriginalFileName=IzakayaCheater-Setup-{#MyAppVersion}.exe
 
 [Languages]
 Name: "chinese"; MessagesFile: "ChineseSimplified.isl"
