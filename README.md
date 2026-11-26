@@ -1,10 +1,10 @@
 # IzakayaCheater
 
+**东方夜雀食堂的存档/内存通用修改器 具备有26项风灵月影版所具备的功能（也算是对标一下 但是人家确实也很实用qwq） 和四项风灵月影所不具备的 分别是：客人单独改好感 某些特殊功能（实验性） 强开boss战和存档自动备份功能**
+
 bakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabakabaka
 
 如果觉得项目不错的话 希望能有一颗star（qwq）
-
-东方夜雀食堂的存档/内存通用修改器 具备有26项风灵月影版所具备的功能（也算是对标一下 但是人家确实也很实用qwq） 和四项风灵月影所不具备的 分别是：客人单独改好感 某些特殊功能（实验性） 强开boss战和存档自动备份功能
 
 本人其实反对过度使用修改器的）希望各位尽量好好享受游戏的过程哦
 
